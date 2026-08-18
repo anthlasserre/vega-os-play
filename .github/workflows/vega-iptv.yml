@@ -1,0 +1,156 @@
+name: vega-iptv
+
+# Sur PR : vérification + build, pour ne jamais fusionner un paquet qui ne se
+# construit pas. Sur tag `v*` : mêmes vérifications, puis publication des .vpkg
+# en release GitHub.
+on:
+  pull_request:
+    paths:
+      - 'vega-iptv/**'
+      - '.github/workflows/vega-iptv.yml'
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version à estampiller dans le paquet (sans le « v »)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  # Version du SDK épinglée : elle conditionne la clé de cache et garantit
+  # qu'une release rejouée produit le même paquet. La faire évoluer invalide
+  # naturellement le cache.
+  VEGA_SDK_VERSION: '0.24.9914'
+
+defaults:
+  run:
+    working-directory: vega-iptv
+
+jobs:
+  build:
+    # Le SDK Vega ne supporte que macOS et Linux — pas de runner Windows ici.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # création de la release sur tag
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: vega-iptv/package-lock.json
+
+      - name: Restaurer le SDK Vega
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/vega
+          key: vega-sdk-${{ runner.os }}-${{ env.VEGA_SDK_VERSION }}
+
+      - name: Installer le SDK Vega
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        working-directory: .
+        run: |
+          set -euo pipefail
+          curl -fsSL https://sdk-installer.vega.labcollab.net/get_vvm.sh -o /tmp/get_vvm.sh
+          NONINTERACTIVE=true bash /tmp/get_vvm.sh
+          # Le device virtuel pèse 2,5 Go et ne sert pas à construire : l'écarter
+          # ramène le cache de 6,2 Go à 3,8 Go.
+          rm -rf "$HOME/vega/sdk/vega-sdk/main/${VEGA_SDK_VERSION}/vvd"
+
+      - name: Exposer la CLI Vega
+        working-directory: .
+        run: echo "$HOME/vega/bin" >> "$GITHUB_PATH"
+
+      - name: Version du SDK
+        working-directory: .
+        run: vega --version
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      - name: Déterminer la version du paquet
+        id: version
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          elif [ -n "${INPUT_VERSION:-}" ]; then
+            VERSION="${INPUT_VERSION:-}"
+          else
+            # Build de vérification : version non publiable, tracée par le SHA.
+            VERSION="0.0.0-${GITHUB_SHA:0:7}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Version du paquet : ${VERSION}"
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+
+      - name: Construire les paquets Release
+        run: |
+          set -euo pipefail
+          npx react-native build-vega \
+            --build-type Release \
+            --build-version "${{ steps.version.outputs.version }}" \
+            --build-number "${GITHUB_RUN_NUMBER}"
+
+      - name: Rassembler les artefacts
+        id: collect
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p dist
+          for pkg in build/*-release/*.vpkg; do
+            arch="$(basename "$(dirname "${pkg}")")"
+            arch="${arch%-release}"
+            cp "${pkg}" "dist/vega-iptv-${VERSION}-${arch}.vpkg"
+          done
+          (cd dist && sha256sum ./*.vpkg > SHA256SUMS.txt)
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vega-iptv-${{ steps.version.outputs.version }}
+          path: vega-iptv/dist/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publier la release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          {
+            echo "Paquets Vega OS construits avec le SDK \`${VEGA_SDK_VERSION}\`, build \`${GITHUB_RUN_NUMBER}\`."
+            echo
+            echo "| Architecture | Cible |"
+            echo "|---|---|"
+            echo "| \`armv7\` / \`aarch64\` | Fire TV Stick 4K Select |"
+            echo "| \`x86_64\` | Vega Virtual Device |"
+            echo
+            echo "Installation :"
+            echo '```bash'
+            echo "vega device install-app --packagePath vega-iptv-${VERSION}-aarch64.vpkg"
+            echo "vega device launch-app --appName com.dkl.vegaiptv.main"
+            echo '```'
+            echo
+            echo "Les empreintes sont dans \`SHA256SUMS.txt\`."
+          } > /tmp/notes.md
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "vega-iptv ${VERSION}" \
+            --notes-file /tmp/notes.md \
+            dist/*.vpkg dist/SHA256SUMS.txt
