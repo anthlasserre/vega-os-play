@@ -1,0 +1,17 @@
+*.iml
+*.swp
+.idea
+.DS_Store
+.vscode
+.tmp
+
+dist
+build
+node_modules
+CMakeUserPresets.json
+npm-debug.log
+# Preview navigateur (outil de dev)
+preview/node_modules
+preview/out
+buildinfo.json
+generated

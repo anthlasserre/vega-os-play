@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Vega IPTV — preview</title>
+    <style>
+      html, body, #root { margin: 0; height: 100%; background: #0B0F17; }
+      /* #root doit être flex : sinon le conteneur racine react-native-web
+         (flex: 1) se dimensionne à son contenu au lieu du plein écran. */
+      #root { display: flex; }
+      * { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="bundle.js"></script>
+  </body>
+</html>
