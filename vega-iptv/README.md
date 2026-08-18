@@ -56,6 +56,14 @@ vega device start-port-forwarding --port 8081 --forward false
 vega run-app build/aarch64-debug/vega-iptv_aarch64.vpkg
 ```
 
+## Déployer sur un Fire TV
+
+Voir [DEPLOY.md](DEPLOY.md) — activation du mode développeur, connexion, build,
+installation et Fast Refresh.
+
+> **Attention** : Vega OS ne tourne que sur le **Fire TV Stick 4K Select**. Les
+> autres Fire TV sont sous Fire OS (Android) et n'installent pas de `.vpkg`.
+
 ## Qualité
 
 ```bash
