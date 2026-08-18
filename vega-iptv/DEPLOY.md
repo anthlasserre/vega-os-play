@@ -164,6 +164,43 @@ vega device installed-apps
 vega device uninstall-app --appName com.dkl.vegaiptv.main
 ```
 
+## Releases automatisées
+
+Le workflow [`.github/workflows/vega-iptv.yml`](../.github/workflows/vega-iptv.yml)
+construit les paquets en CI. Aucune authentification n'est nécessaire : le build
+`Release` ne demande ni compte développeur ni clé de signature — seul le
+déploiement sur appareil en exige.
+
+| Déclencheur | Effet |
+|---|---|
+| Pull request touchant `vega-iptv/` | lint, typecheck, tests, build `Release` — le paquet est publié en artefact du run |
+| Tag `v*` | mêmes vérifications, puis **release GitHub** avec les trois `.vpkg` et `SHA256SUMS.txt` |
+| Déclenchement manuel | idem, avec une version au choix |
+
+Publier une version :
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+Le tag donne la version estampillée dans le paquet (`v0.2.0` → `0.2.0`) et le
+numéro de run sert de `build_number`. Les artefacts sont nommés
+`vega-iptv-<version>-<arch>.vpkg`.
+
+Installer une release téléchargée :
+
+```bash
+sha256sum -c SHA256SUMS.txt
+vega device install-app --packagePath vega-iptv-0.2.0-aarch64.vpkg
+vega device launch-app --appName com.dkl.vegaiptv.main
+```
+
+**Le SDK est épinglé** (`VEGA_SDK_VERSION` dans le workflow) et mis en cache : une
+release rejouée produit le même paquet. Le device virtuel, 2,5 Go inutiles à la
+construction, est retiré avant mise en cache. Première exécution ≈ 10 min
+d'installation du SDK ; les suivantes repartent du cache.
+
 ## Ce qui marchera — et ce qui ne marchera pas encore
 
 Au premier lancement, l'app démarre sur la playlist de démo. Ajouter un portail
