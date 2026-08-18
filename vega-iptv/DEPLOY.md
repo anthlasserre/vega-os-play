@@ -1,19 +1,52 @@
 # Déployer sur un Fire TV
 
-## 0. Prérequis matériel — à vérifier en premier
+## 0. Prérequis
 
-**Vega OS ne tourne aujourd'hui que sur le Fire TV Stick 4K Select.** Tous les
-autres Fire TV (Stick 4K, 4K Max, Cube, téléviseurs intégrés) tournent sous
-Fire OS, qui est de l'Android : ils installent des `.apk`, pas des `.vpkg`. Le
-paquet produit ici ne s'y installera pas.
+**L'appareil** : Vega OS ne tourne aujourd'hui que sur le **Fire TV Stick 4K
+Select**. Les autres Fire TV sont sous Fire OS (Android) et n'installent pas de
+`.vpkg`. Vérification : `Paramètres > My Fire TV > À propos`.
 
-Vérification rapide sur l'appareil : `Paramètres > My Fire TV > À propos`.
+**La machine de dev** : **macOS 10.15+ ou Ubuntu 20.04+**. Windows n'est pas
+supporté, **WSL non plus** — c'est une contrainte du SDK Vega, pas un oubli.
 
-Il faut aussi un **compte développeur Amazon** avec un **profil vendeur**
-(vendor) configuré sur [developer.amazon.com](https://developer.amazon.com) —
-sans lui, l'activation du mode développeur échoue avec « no vendors found ».
+**Le compte** : un compte développeur Amazon avec un **profil vendeur** configuré
+sur [developer.amazon.com](https://developer.amazon.com). Sans lui, l'activation
+du mode développeur échoue avec « no vendors found ».
 
-## 1. Activer le mode développeur (une fois par appareil)
+## 1. Préparer la machine
+
+```bash
+# SDK Vega (script interactif, ~5-10 min)
+curl -fsSL https://sdk-installer.vega.labcollab.net/get_vvm.sh | bash
+source ~/vega/env
+vega --version        # doit afficher SDK + CLI
+
+# Le projet
+git clone -b feat/vega-iptv-poc https://github.com/anthlasserre/vega-os-play.git
+cd vega-os-play/vega-iptv
+npm install
+```
+
+`source ~/vega/env` est ajouté à ton `.bashrc` / `.zshrc` par l'installeur : les
+prochains terminaux l'auront automatiquement.
+
+### Optionnel : l'assistant Amazon dans ton éditeur
+
+Amazon publie **ADBT** (Amazon Devices Builder Tools), un serveur MCP + des
+skills qui donnent à un agent (Claude Code, Copilot, Kiro…) la connaissance
+Vega : setup SDK, build & run, debug de crash, KPI de performance, lecteur média.
+
+```bash
+cd vega-os-play/vega-iptv
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context \
+  --agent claude-code-cli
+```
+
+Ça configure le serveur MCP et dépose un document de contexte dans le projet.
+C'est un **complément** au reste de ce guide, pas un remplacement : les commandes
+ci-dessous restent la référence déterministe.
+
+## 2. Activer le mode développeur (une fois par appareil)
 
 Sur le Fire TV :
 
@@ -36,7 +69,7 @@ L'appareil redémarre tout seul. Compter 30 à 60 s.
 > Le code expire vite. S'il est refusé, refaire `Options développeur > Mode
 > développeur > Continuer` pour en obtenir un neuf.
 
-## 2. Connecter l'appareil
+## 3. Connecter l'appareil
 
 Machine de dev et Fire TV **sur le même réseau**.
 
@@ -54,7 +87,7 @@ vega exec vda connect <IP_DU_FIRE_TV>
 vega device list
 ```
 
-## 3. Construire
+## 4. Construire
 
 ```bash
 npm install
@@ -70,7 +103,7 @@ build/aarch64-debug/vega-iptv_aarch64.vpkg
 build/x86_64-debug/vega-iptv_x86_64.vpkg
 ```
 
-## 4. Installer et lancer
+## 5. Installer et lancer
 
 Laisser la CLI choisir l'architecture — c'est le mode le plus sûr, il évite
 l'erreur classique de mauvais `.vpkg` :
@@ -93,7 +126,7 @@ En une commande, avec un paquet explicite :
 vega run-app build/armv7-debug/vega-iptv_armv7.vpkg com.dkl.vegaiptv.main
 ```
 
-## 5. Itérer sans reconstruire (Fast Refresh)
+## 6. Itérer sans reconstruire (Fast Refresh)
 
 Une fois un build **Debug** installé, les modifications `.tsx` se rechargent à
 chaud. Trois choses doivent tourner en même temps.
@@ -121,7 +154,7 @@ vega device launch-app --dir .
 > connecte au Metro de la machine de dev. Ne pas réutiliser le terminal de Metro
 > pour la redirection de port.
 
-## 6. Diagnostiquer
+## 7. Diagnostiquer
 
 ```bash
 vega device start-log-stream          # logs en direct
@@ -152,4 +185,5 @@ URL et se lisent dès maintenant : c'est le bon chemin pour valider le déploiem
 | `Can't find a VPKG file for architecture …` | Build manquant pour ce type — relancer `npm run build:debug` (ou `:release`) |
 | `Unknown argument: vpkg` | Utiliser `--packagePath`, pas `--vpkg` |
 | L'app s'installe mais ne démarre pas | Vérifier le nom : `com.dkl.vegaiptv.main` (cf. `app.json`) |
+| Installeur SDK refusé sur Windows/WSL | Non supporté — il faut macOS ou Linux |
 | Fast Refresh inactif | Metro doit tourner **avant** le lancement ; vérifier `vega device is-port-forwarded --port 8081` |
