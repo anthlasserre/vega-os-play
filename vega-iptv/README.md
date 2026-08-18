@@ -37,9 +37,11 @@ sections restent vides pour une source M3U, ce n'est pas un manque de l'app.
 
 ## Prérequis
 
-- Vega SDK (`vega --version`) :
-  `curl -fsSL https://sdk-installer.vega.labcollab.net/get_vvm.sh | bash && source ~/vega/env`
+- Machine de dev sous **macOS 10.15+ ou Ubuntu 20.04+**. Windows et WSL ne sont
+  pas supportés par le SDK Vega.
 - Node 20+.
+- Vega SDK :
+  `curl -fsSL https://sdk-installer.vega.labcollab.net/get_vvm.sh | bash && source ~/vega/env`
 
 ## Démarrer
 
@@ -49,20 +51,31 @@ npm start                 # Metro (plateforme "kepler")
 npm run build:debug       # .vpkg armv7 / aarch64 / x86_64 dans build/
 ```
 
-Sur un appareil (physique ou Vega Virtual Device) :
-
-```bash
-vega device start-port-forwarding --port 8081 --forward false
-vega run-app build/aarch64-debug/vega-iptv_aarch64.vpkg
-```
-
 ## Déployer sur un Fire TV
 
-Voir [DEPLOY.md](DEPLOY.md) — activation du mode développeur, connexion, build,
-installation et Fast Refresh.
+> **Attention** : Vega OS ne tourne aujourd'hui que sur le **Fire TV Stick 4K
+> Select**. Les autres Fire TV sont sous Fire OS (Android) et n'installent pas
+> de `.vpkg`.
 
-> **Attention** : Vega OS ne tourne que sur le **Fire TV Stick 4K Select**. Les
-> autres Fire TV sont sous Fire OS (Android) et n'installent pas de `.vpkg`.
+Mode développeur déjà activé et appareil visible dans `vega device list` :
+
+```bash
+npm run build:debug
+vega device install-app --dir . -b Debug     # laisse la CLI choisir l'archi
+vega device launch-app --dir .
+vega device running-apps                     # vérification
+```
+
+Itérer sans reconstruire (Fast Refresh), dans deux terminaux séparés :
+
+```bash
+vega device start-port-forwarding --port 8081 --forward false   # terminal 1
+npm start                                                        # terminal 2
+vega device launch-app --dir .
+```
+
+Première fois sur un appareil neuf — activation du mode développeur, profil
+vendeur, connexion VDA, diagnostic et erreurs courantes : **[DEPLOY.md](DEPLOY.md)**.
 
 ## Qualité
 
