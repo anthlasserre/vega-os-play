@@ -23,6 +23,10 @@ npm run build:debug
 vega device install-app --dir . -b Debug && vega device launch-app --dir .
 ```
 
+Les paquets sont aussi construits en CI : une PR produit un artefact vérifiable,
+un tag `v*` publie une release GitHub avec les trois `.vpkg` et leurs empreintes.
+Voir [Releases automatisées](vega-iptv/DEPLOY.md#releases-automatisées).
+
 > Vega OS ne tourne aujourd'hui que sur le **Fire TV Stick 4K Select**. Les
 > autres Fire TV sont sous Fire OS (Android) et n'installent pas de `.vpkg`.
 > La machine de dev doit être sous **macOS ou Linux** (Windows et WSL non
