@@ -1,5 +1,4 @@
-import {buildCategories, parseM3U, toPlaylist} from '../src/iptv/m3u';
-import {ALL_CATEGORY_ID} from '../src/iptv/types';
+import {UNCLASSIFIED, buildM3uCategories, parseM3U} from '../src/iptv/m3u';
 
 const PLAYLIST = `#EXTM3U
 #EXTINF:-1 tvg-id="tf1.fr" tvg-logo="http://logo/tf1.png" group-title="Généralistes",TF1 HD
@@ -13,70 +12,59 @@ http://server/live/3.m3u8
 
 describe('parseM3U', () => {
   it('lit nom, groupe, logo et tvg-id', () => {
-    const channels = parseM3U(PLAYLIST);
+    const channels = parseM3U(PLAYLIST, 'src');
 
     expect(channels).toHaveLength(3);
     expect(channels[0]).toEqual({
-      id: 'm3u-0',
+      kind: 'live',
+      id: 'src:live:0',
       name: 'TF1 HD',
       url: 'http://server/live/1.m3u8',
-      group: 'Généralistes',
+      categoryId: 'Généralistes',
       logo: 'http://logo/tf1.png',
-      tvgId: 'tf1.fr',
+      epgId: 'tf1.fr',
+      archiveDays: 0,
     });
     expect(channels[1].logo).toBeUndefined();
   });
 
   it('saute les directives intercalées entre #EXTINF et son URL', () => {
-    const channels = parseM3U(PLAYLIST);
-
-    expect(channels[2]).toMatchObject({
+    expect(parseM3U(PLAYLIST, 'src')[2]).toMatchObject({
       name: 'beIN 1',
-      group: 'Sport',
+      categoryId: 'Sport',
       url: 'http://server/live/3.m3u8',
     });
   });
 
   it('retombe sur le groupe par défaut quand group-title manque', () => {
-    const channels = parseM3U('#EXTINF:-1,Sans groupe\nhttp://server/x.ts');
-
-    expect(channels[0].group).toBe('Non classé');
+    expect(parseM3U('#EXTINF:-1,Sans groupe\nhttp://s/x.ts', 'src')[0].categoryId).toBe(
+      UNCLASSIFIED,
+    );
   });
 
   it('ignore une entrée sans URL en fin de fichier', () => {
-    const channels = parseM3U('#EXTINF:-1,Orpheline\n');
-
-    expect(channels).toHaveLength(0);
+    expect(parseM3U('#EXTINF:-1,Orpheline\n', 'src')).toHaveLength(0);
   });
 
   it('retombe sur tvg-name quand le titre après la virgule est vide', () => {
-    const channels = parseM3U('#EXTINF:-1 tvg-name="Repli",\nhttp://server/x.mp4');
+    expect(parseM3U('#EXTINF:-1 tvg-name="Repli",\nhttp://s/x.mp4', 'src')[0].name).toBe(
+      'Repli',
+    );
+  });
 
-    expect(channels[0].name).toBe('Repli');
+  it('préfixe les identifiants par la source pour éviter les collisions', () => {
+    const a = parseM3U(PLAYLIST, 'alpha');
+    const b = parseM3U(PLAYLIST, 'beta');
+
+    expect(a[0].id).not.toBe(b[0].id);
   });
 });
 
-describe('buildCategories', () => {
-  it('préfixe une catégorie « Toutes » et compte les chaînes', () => {
-    const categories = buildCategories(parseM3U(PLAYLIST));
-
-    expect(categories[0]).toEqual({
-      id: ALL_CATEGORY_ID,
-      name: 'Toutes',
-      channelCount: 3,
-    });
-    expect(categories.slice(1)).toEqual([
-      {id: 'Généralistes', name: 'Généralistes', channelCount: 2},
-      {id: 'Sport', name: 'Sport', channelCount: 1},
+describe('buildM3uCategories', () => {
+  it('compte les chaînes par groupe et trie par nom', () => {
+    expect(buildM3uCategories(parseM3U(PLAYLIST, 'src'))).toEqual([
+      {id: 'Généralistes', name: 'Généralistes', count: 2},
+      {id: 'Sport', name: 'Sport', count: 1},
     ]);
-  });
-});
-
-describe('toPlaylist', () => {
-  it('assemble chaînes et catégories', () => {
-    const playlist = toPlaylist(parseM3U(PLAYLIST));
-
-    expect(playlist.channels).toHaveLength(3);
-    expect(playlist.categories).toHaveLength(3);
   });
 });

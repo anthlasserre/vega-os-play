@@ -1,4 +1,4 @@
-import {ALL_CATEGORY_ID, Category, Channel, Playlist} from './types';
+import {Category, LiveChannel, Source} from './types';
 
 const EXTINF = '#EXTINF:';
 const ATTRIBUTE = /([a-zA-Z0-9-]+)="([^"]*)"/g;
@@ -14,17 +14,20 @@ const readAttributes = (header: string): Record<string, string> => {
   return attributes;
 };
 
+export const UNCLASSIFIED = 'Non classé';
+
 /**
- * Parses an extended M3U playlist.
+ * Parse une playlist M3U étendue.
  *
- * Deliberately tolerant: real IPTV providers emit inconsistent playlists, so an
- * entry missing a URL, or a stray line between the #EXTINF and its URL, must not
- * abort the whole parse.
+ * Délibérément tolérant : les fournisseurs IPTV émettent des playlists
+ * irrégulières, et une entrée sans URL ou une directive intercalée ne doit pas
+ * faire échouer tout le fichier.
  */
-export const parseM3U = (raw: string, fallbackGroup = 'Non classé'): Channel[] => {
+export const parseM3U = (raw: string, sourceId: string): LiveChannel[] => {
   const lines = raw.split(/\r?\n/);
-  const channels: Channel[] = [];
-  let pending: Omit<Channel, 'url' | 'id'> | null = null;
+  const channels: LiveChannel[] = [];
+  let pending: {name: string; group: string; logo?: string; epgId?: string} | null =
+    null;
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -43,20 +46,29 @@ export const parseM3U = (raw: string, fallbackGroup = 'Non classé'): Channel[] 
 
       pending = {
         name,
-        group: attributes['group-title'] || fallbackGroup,
+        group: attributes['group-title'] || UNCLASSIFIED,
         logo: attributes['tvg-logo'] || undefined,
-        tvgId: attributes['tvg-id'] || undefined,
+        epgId: attributes['tvg-id'] || undefined,
       };
       continue;
     }
 
-    // Any other directive (#EXTGRP, #EXTVLCOPT, #EXTM3U...) is not a stream URL.
+    // Toute autre directive (#EXTGRP, #EXTVLCOPT, #EXTM3U...) n'est pas une URL.
     if (trimmed.startsWith('#')) {
       continue;
     }
 
     if (pending !== null) {
-      channels.push({...pending, id: `m3u-${channels.length}`, url: trimmed});
+      channels.push({
+        kind: 'live',
+        id: `${sourceId}:live:${channels.length}`,
+        name: pending.name,
+        url: trimmed,
+        categoryId: pending.group,
+        logo: pending.logo,
+        epgId: pending.epgId,
+        archiveDays: 0,
+      });
       pending = null;
     }
   }
@@ -64,23 +76,32 @@ export const parseM3U = (raw: string, fallbackGroup = 'Non classé'): Channel[] 
   return channels;
 };
 
-export const buildCategories = (channels: Channel[]): Category[] => {
+export const buildM3uCategories = (channels: LiveChannel[]): Category[] => {
   const counts = new Map<string, number>();
   for (const channel of channels) {
-    counts.set(channel.group, (counts.get(channel.group) ?? 0) + 1);
+    counts.set(channel.categoryId, (counts.get(channel.categoryId) ?? 0) + 1);
   }
 
-  const groups = Array.from(counts.entries())
-    .sort((a, b) => a[0].localeCompare(b[0], 'fr'))
-    .map(([name, channelCount]) => ({id: name, name, channelCount}));
-
-  return [
-    {id: ALL_CATEGORY_ID, name: 'Toutes', channelCount: channels.length},
-    ...groups,
-  ];
+  return Array.from(counts.entries())
+    .map(([id, count]) => ({id, name: id, count}))
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 };
 
-export const toPlaylist = (channels: Channel[]): Playlist => ({
-  channels,
-  categories: buildCategories(channels),
-});
+const TIMEOUT_MS = 25000;
+
+export const fetchM3U = async (url: string): Promise<string> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {signal: controller.signal});
+    if (!response.ok) {
+      throw new Error(`La playlist a répondu ${response.status}`);
+    }
+    return await response.text();
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+export const isM3uLike = (source: Source): source is Extract<Source, {kind: 'm3u'}> =>
+  source.kind === 'm3u';

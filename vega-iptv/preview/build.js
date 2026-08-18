@@ -20,6 +20,7 @@ esbuild
       'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
       'react-native': 'react-native-web',
       '@amazon-devices/react-native-kepler': shim('kepler.js'),
+      '@amazon-devices/kepler-file-system': shim('kepler-file-system.js'),
       '@amazon-devices/react-native-w3cmedia/dist/headless': shim(
         'w3cmedia-headless.js',
       ),

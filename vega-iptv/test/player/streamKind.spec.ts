@@ -1,4 +1,4 @@
-import {extensionOf, streamKindOf} from '../src/player/streamKind';
+import {extensionOf, streamKindOf} from '../../src/player/streamKind';
 
 describe('extensionOf', () => {
   it('ignore la query string et le fragment', () => {
