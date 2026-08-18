@@ -18,6 +18,8 @@ on:
         required: false
         default: ''
 
+# Dépôt public : le principe est qu'aucune étape ne dispose d'un droit qu'elle
+# n'utilise pas. La construction ne lit que le code, seule la publication écrit.
 permissions:
   contents: read
 
@@ -35,8 +37,12 @@ jobs:
   build:
     # Le SDK Vega ne supporte que macOS et Linux — pas de runner Windows ici.
     runs-on: ubuntu-latest
+    # Aucune écriture. Ce job exécute le code de la PR, y compris celui d'un
+    # fork : il ne doit rien pouvoir modifier dans le dépôt.
     permissions:
-      contents: write # création de la release sur tag
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - uses: actions/checkout@v4
@@ -107,7 +113,6 @@ jobs:
             --build-number "${GITHUB_RUN_NUMBER}"
 
       - name: Rassembler les artefacts
-        id: collect
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
@@ -127,13 +132,32 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  # Job séparé pour que le droit d'écriture n'existe que sur un tag, et jamais
+  # dans le job qui exécute le code d'une pull request.
+  release:
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: vega-iptv-${{ needs.build.outputs.version }}
+          path: dist
+
       - name: Publier la release
-        if: github.ref_type == 'tag'
+        working-directory: .
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
+          # Les paquets viennent du job de build : on revérifie les empreintes
+          # avant publication plutôt que de faire confiance au transfert.
+          (cd dist && sha256sum -c SHA256SUMS.txt)
           {
             echo "Paquets Vega OS construits avec le SDK \`${VEGA_SDK_VERSION}\`, build \`${GITHUB_RUN_NUMBER}\`."
             echo
@@ -144,13 +168,12 @@ jobs:
             echo
             echo "Installation :"
             echo '```bash'
+            echo "sha256sum -c SHA256SUMS.txt"
             echo "vega device install-app --packagePath vega-iptv-${VERSION}-aarch64.vpkg"
             echo "vega device launch-app --appName com.dkl.vegaiptv.main"
             echo '```'
-            echo
-            echo "Les empreintes sont dans \`SHA256SUMS.txt\`."
-          } > /tmp/notes.md
+          } > notes.md
           gh release create "${GITHUB_REF_NAME}" \
             --title "vega-iptv ${VERSION}" \
-            --notes-file /tmp/notes.md \
+            --notes-file notes.md \
             dist/*.vpkg dist/SHA256SUMS.txt
