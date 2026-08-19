@@ -1,4 +1,4 @@
-import {XtreamSource} from '../types';
+import { XtreamSource } from '../types';
 
 export type StreamExtension = 'm3u8' | 'ts';
 

@@ -65,7 +65,7 @@ export const CatalogBrowser = ({
     () =>
       categoryId === ALL_CATEGORY_ID
         ? items
-        : items.filter(item => item.categoryId === categoryId),
+        : items.filter((item) => item.categoryId === categoryId),
     [items, categoryId],
   );
 
@@ -82,7 +82,7 @@ export const CatalogBrowser = ({
         <TVFocusGuideView style={styles.sidebar}>
           <FlatList
             data={allCategories}
-            keyExtractor={category => category.id}
+            keyExtractor={(category) => category.id}
             initialNumToRender={12}
             windowSize={5}
             maxToRenderPerBatch={12}
@@ -110,7 +110,7 @@ export const CatalogBrowser = ({
             key={`${layout}-${GRID_COLUMNS}`}
             data={visible}
             numColumns={layout === 'grid' ? GRID_COLUMNS : 1}
-            keyExtractor={item => item.id}
+            keyExtractor={(item) => item.id}
             columnWrapperStyle={layout === 'grid' ? styles.gridRow : undefined}
             initialNumToRender={12}
             windowSize={5}
@@ -139,7 +139,12 @@ export const CatalogBrowser = ({
         {aside !== undefined && <View style={styles.aside}>{aside}</View>}
       </View>
 
-      <ActionButton label="Retour" onPress={onBack} style={styles.back} testID="browser-back" />
+      <ActionButton
+        label="Retour"
+        onPress={onBack}
+        style={styles.back}
+        testID="browser-back"
+      />
     </View>
   );
 };

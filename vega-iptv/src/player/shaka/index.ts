@@ -17,20 +17,16 @@ let factory: MseAdapterFactory | null = null;
 /**
  * Point d'injection du lecteur MSE.
  *
- * Vega n'accepte PAS les paquets shaka-player / hls.js publiés en amont : il faut
- * le `dist` patché fourni dans la release Vega
- * (https://developer.amazon.com/docs/vega/latest/media-player-shaka-player.html),
- * généré hors du dossier applicatif puis déposé ici.
+ * L'implémentation réelle vit dans `./adapter`, qui importe le Shaka patché
+ * Vega installé sous `src/shakaplayer/`. Elle est enregistrée depuis `index.js`,
+ * l'entrée de l'application, et *seulement* de là : ni les écrans, ni Jest, ni
+ * la prévisualisation navigateur ne tirent alors ces fichiers dans leur bundle.
  *
- * Tant que ce dist n'est pas déposé, `getMseAdapterFactory()` renvoie `null` et
- * l'app affiche un message explicite au lieu d'un écran noir. Les flux MP4 de la
- * playlist de démo, eux, passent par le mode URL et fonctionnent sans cette étape.
+ * Le registre reste donc utile même une fois Shaka branché : hors application —
+ * tests, preview — `getMseAdapterFactory()` renvoie `null` et l'appelant affiche
+ * un message explicite au lieu d'un écran noir.
  *
- * Pour brancher Shaka :
- *   1. générer le dist Vega de shaka-player en dehors de ce dépôt ;
- *   2. le copier dans `src/player/shaka/dist/` ;
- *   3. appeler `registerMseAdapterFactory(...)` depuis `index.js`, avant
- *      `AppRegistry.registerComponent`.
+ * Installation du dist Shaka : `npm run setup:shaka` (voir le README).
  */
 export const registerMseAdapterFactory = (next: MseAdapterFactory): void => {
   factory = next;

@@ -1,4 +1,4 @@
-import {decodeMaybeBase64} from '../base64';
+import { decodeMaybeBase64 } from '../base64';
 import {
   AccountInfo,
   Category,
@@ -20,7 +20,7 @@ import {
   RawUserInfo,
   RawVodStream,
 } from './raw';
-import {episodeStreamUrl, liveStreamUrl, movieStreamUrl} from './urls';
+import { episodeStreamUrl, liveStreamUrl, movieStreamUrl } from './urls';
 
 /** Les panels renvoient tantôt `12`, tantôt `"12"`, tantôt `""`. */
 export const toNumber = (value: Numeric | null | undefined): number | undefined => {
@@ -32,7 +32,7 @@ export const toNumber = (value: Numeric | null | undefined): number | undefined 
 };
 
 export const toText = (value: string | undefined): string | undefined =>
-  value === undefined || value.trim() === '' ? undefined : value.trim();
+  value === undefined || value?.trim() === '' ? undefined : value?.trim();
 
 const UNCATEGORISED = 'uncategorised';
 
@@ -54,7 +54,7 @@ export const mapCategories = (raw: RawCategory[]): Map<string, string> =>
  * cul-de-sac pour l'utilisateur.
  */
 export const buildCategories = (
-  items: {categoryId: string}[],
+  items: { categoryId: string }[],
   names: Map<string, string>,
 ): Category[] => {
   const counts = new Map<string, number>();

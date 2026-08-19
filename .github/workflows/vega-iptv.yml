@@ -81,6 +81,33 @@ jobs:
 
       - run: npm ci
 
+      # Le lecteur MSE Shaka n'est pas versionné : ses sources sont sous licence
+      # Amazon et son dist compilé pèse 1,5 Mo. On le reconstruit — clonage de
+      # shaka-player, patches Vega, Closure Compiler — et on met le résultat en
+      # cache, la compilation prenant plusieurs minutes. Sans lui, `typecheck`
+      # échoue : src/player/shaka/adapter.ts importe src/shakaplayer/.
+      - name: Restaurer le lecteur Shaka
+        id: shaka-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            vega-iptv/src/PlayerInterface.ts
+            vega-iptv/src/polyfills
+            vega-iptv/src/shakaplayer
+          key: shaka-${{ runner.os }}-${{ hashFiles('vega-iptv/scripts/setup-shaka.sh') }}
+
+      # Closure Compiler est compilé pour Java 21+ : le JDK par défaut du runner
+      # ubuntu échoue sur un UnsupportedClassVersionError en fin de build.
+      - uses: actions/setup-java@v4
+        if: steps.shaka-cache.outputs.cache-hit != 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Installer le lecteur Shaka
+        if: steps.shaka-cache.outputs.cache-hit != 'true'
+        run: npm run setup:shaka
+
       - run: npm run lint
 
       - run: npm run typecheck

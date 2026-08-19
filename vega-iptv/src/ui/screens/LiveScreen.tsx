@@ -2,7 +2,13 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {CatalogBrowser} from '../components/CatalogBrowser';
 import {EpgPanel} from '../components/EpgPanel';
 import {loadChannelEpg} from '../../iptv/catalog';
-import {Catalog, EpgEntry, LiveChannel, Source, mediaKey} from '../../iptv/types';
+import {
+  Catalog,
+  EpgEntry,
+  LiveChannel,
+  Source,
+  mediaKey,
+} from '../../iptv/types';
 import {PersistedState} from '../../storage/schema';
 
 export interface LiveScreenProps {
@@ -30,11 +36,12 @@ export const LiveScreen = ({
   const requestRef = useRef(0);
 
   const channelById = useMemo(
-    () => new Map(catalog.live.items.map(channel => [channel.id, channel])),
+    () => new Map(catalog.live.items.map((channel) => [channel.id, channel])),
     [catalog.live.items],
   );
 
-  const focused = focusedId === null ? null : channelById.get(focusedId) ?? null;
+  const focused =
+    focusedId === null ? null : channelById.get(focusedId) ?? null;
   const focusedStreamId = focused?.streamId;
 
   // Horloge de l'EPG : la barre de progression du programme en cours doit
@@ -57,7 +64,7 @@ export const LiveScreen = ({
 
     const timer = setTimeout(() => {
       loadChannelEpg(source, focusedStreamId)
-        .then(loaded => {
+        .then((loaded) => {
           if (requestRef.current === requestId) {
             setEntries(loaded);
             setLoading(false);
@@ -76,11 +83,13 @@ export const LiveScreen = ({
 
   const items = useMemo(
     () =>
-      catalog.live.items.map(channel => ({
+      catalog.live.items.map((channel) => ({
         id: channel.id,
         title: channel.name,
         subtitle:
-          channel.archiveDays > 0 ? `Replay ${channel.archiveDays} j` : undefined,
+          channel.archiveDays > 0
+            ? `Replay ${channel.archiveDays} j`
+            : undefined,
         image: channel.logo,
         favorite: state.favorites.includes(mediaKey('live', channel.id)),
         categoryId: channel.categoryId,

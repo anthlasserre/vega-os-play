@@ -21,7 +21,11 @@ interface Row {
   item: MediaItem;
 }
 
-export const SearchScreen = ({catalog, onSelect, onBack}: SearchScreenProps) => {
+export const SearchScreen = ({
+  catalog,
+  onSelect,
+  onBack,
+}: SearchScreenProps) => {
   const [query, setQuery] = useState('');
 
   const results = useMemo(
@@ -34,9 +38,9 @@ export const SearchScreen = ({catalog, onSelect, onBack}: SearchScreenProps) => 
 
   const rows = useMemo<Row[]>(
     () => [
-      ...results.live.map(item => ({section: 'Direct', item})),
-      ...results.movies.map(item => ({section: 'Film', item})),
-      ...results.series.map(item => ({section: 'Série', item})),
+      ...results.live.map((item) => ({section: 'Direct', item})),
+      ...results.movies.map((item) => ({section: 'Film', item})),
+      ...results.series.map((item) => ({section: 'Série', item})),
     ],
     [results],
   );
@@ -66,7 +70,7 @@ export const SearchScreen = ({catalog, onSelect, onBack}: SearchScreenProps) => 
       <TVFocusGuideView style={styles.results}>
         <FlatList
           data={rows}
-          keyExtractor={row => `${row.section}-${row.item.id}`}
+          keyExtractor={(row) => `${row.section}-${row.item.id}`}
           initialNumToRender={12}
           windowSize={5}
           maxToRenderPerBatch={12}
@@ -85,7 +89,12 @@ export const SearchScreen = ({catalog, onSelect, onBack}: SearchScreenProps) => 
         />
       </TVFocusGuideView>
 
-      <ActionButton testID="search-back" label="Retour" onPress={onBack} style={styles.back} />
+      <ActionButton
+        testID="search-back"
+        label="Retour"
+        onPress={onBack}
+        style={styles.back}
+      />
     </View>
   );
 };

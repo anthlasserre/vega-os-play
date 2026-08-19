@@ -43,7 +43,12 @@ export const Focusable = ({
       onBlur={() => setFocused(false)}
       onPress={onPress}
       testID={testID}
-      style={[styles.base, focused && styles.focused, style, focused && focusedStyle]}>
+      style={[
+        styles.base,
+        focused && styles.focused,
+        style,
+        focused && focusedStyle,
+      ]}>
       <View style={styles.content}>{children(focused)}</View>
     </Pressable>
   );

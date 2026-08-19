@@ -40,6 +40,9 @@ sections restent vides pour une source M3U, ce n'est pas un manque de l'app.
 - Machine de dev sous **macOS 10.15+ ou Ubuntu 20.04+**. Windows et WSL ne sont
   pas supportés par le SDK Vega.
 - Node 20+.
+- **JDK 21+** — Closure Compiler, utilisé pour construire le lecteur Shaka.
+  Un JDK 17 échoue en fin de compilation sur un `UnsupportedClassVersionError`.
+- Python 3 et Git, pour la même raison.
 - Vega SDK :
   `curl -fsSL https://sdk-installer.vega.labcollab.net/get_vvm.sh | bash && source ~/vega/env`
 
@@ -47,6 +50,7 @@ sections restent vides pour une source M3U, ce n'est pas un manque de l'app.
 
 ```bash
 npm install
+npm run setup:shaka       # lecteur MSE (obligatoire, une seule fois)
 npm start                 # Metro (plateforme "kepler")
 npm run build:debug       # .vpkg armv7 / aarch64 / x86_64 dans build/
 ```
@@ -97,24 +101,53 @@ production** et rien n'en entre dans le bundle Vega.
 cd preview && npm install && npm run build && npm run shots
 ```
 
-## Lecture HLS / DASH : ce qui manque
+## Lecture HLS / DASH : le lecteur MSE
 
 Le lecteur Vega a deux modes :
 
-| Mode | Contenus | État ici |
+| Mode | Contenus | Chemin |
 |---|---|---|
-| URL | `.mp4`, `.mkv`, `.mp3`, `.flv`, `.ogg`, `.flac` | ✅ opérationnel |
-| MSE | HLS, DASH, DRM | 🔌 point d'injection prêt, lecteur JS à déposer |
+| URL | `.mp4`, `.mkv`, `.mp3`, `.flv`, `.ogg`, `.flac` | `VideoPlayer.src` |
+| MSE | HLS, DASH, DRM | Shaka Player pousse les segments |
 
-Vega **refuse** les paquets `shaka-player` / `hls.js` publiés en amont : il faut
-le `dist` patché fourni dans la release Vega
-(https://developer.amazon.com/docs/vega/latest/media-player-shaka-player.html),
-généré hors du dépôt puis déposé dans `src/player/shaka/`. Tant qu'il n'est pas
-là, l'app affiche un message explicite au lieu d'un écran noir.
+Un flux live Xtream est servi en HLS : sans MSE, tout le direct échoue sur
+`MSE_UNAVAILABLE`. Vega **refuse** les paquets `shaka-player` / `hls.js` publiés
+en amont — il faut la version patchée par Amazon
+([doc](https://developer.amazon.com/docs/vega/0.24/media-player-shaka-player.html)),
+que `npm run setup:shaka` construit :
 
-C'est la limite structurante : un flux live Xtream est servi en HLS, donc le
-direct dépend de cette étape. Les films et épisodes en `.mkv` / `.mp4`, eux,
-passent par le mode URL et se lisent dès maintenant.
+```bash
+npm run setup:shaka
+```
+
+Le script télécharge `shaka-rel-v4.16.13-r1.2`, clone `shaka-player`, applique
+les patches Vega, compile avec Closure, puis installe dans `src/` :
+
+| Chemin | Origine | Versionné |
+|---|---|---|
+| `src/PlayerInterface.ts` | Amazon | non |
+| `src/polyfills/*.ts` | Amazon | non |
+| `src/shakaplayer/ShakaPlayer.ts` | Amazon | non |
+| `src/shakaplayer/dist/shaka-player.compiled.debug.js` | build Closure | non |
+| `src/PlayerBase.ts` | **nous** | oui |
+
+Ces fichiers ne sont pas versionnés : les sources Amazon portent un en-tête
+« AMAZON PROPRIETARY/CONFIDENTIAL » et le dist compilé pèse 1,5 Mo. La CI les
+reconstruit et les met en cache.
+
+`PlayerBase.ts` fait exception parce qu'il *manque* dans le paquet d'Amazon :
+`ShakaPlayer.ts` fait `extends PlayerBase`, mais le tarball ne livre pas ce
+fichier. On le reconstitue à partir des seuls membres que `ShakaPlayer` consomme.
+
+Le branchement lui-même tient en deux fichiers à nous :
+
+- `src/player/shaka/adapter.ts` — traduit l'interface `MseAdapter` de l'app
+  (`load` / `unload` / `destroy`) vers `ShakaPlayer`, et pointe `global.gmedia`
+  sur le `VideoPlayer` comme l'exigent les polyfills d'Amazon ;
+- `index.js` — enregistre cet adaptateur avant `AppRegistry.registerComponent`.
+
+Cette indirection sert aussi à Jest et à la prévisualisation navigateur, qui
+n'exécutent pas `index.js` : ils n'ont donc pas besoin des fichiers Shaka.
 
 ## Hors périmètre sur Vega
 

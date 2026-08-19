@@ -42,7 +42,7 @@ export interface MediaPlayerHandle {
 }
 
 const MSE_UNAVAILABLE =
-  "Ce flux est adaptatif (HLS/DASH) : il a besoin du lecteur MSE. Dépose le dist Shaka patché Vega dans src/player/shaka/ (voir le README). Les contenus MP4 se lisent, eux, sans rien ajouter.";
+  "Ce flux est adaptatif (HLS/DASH) : il a besoin du lecteur MSE. Aucun adaptateur n'est enregistré — dans l'application, index.js branche Shaka au démarrage ; il faut l'avoir installé via `npm run setup:shaka` (voir le README). Les contenus MP4 se lisent, eux, sans rien ajouter.";
 
 const TICK_MS = 1000;
 const PROGRESS_REPORT_MS = 5000;

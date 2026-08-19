@@ -26,8 +26,10 @@ export const ActionButton = ({
     hasTVPreferredFocus={hasTVPreferredFocus}
     testID={testID}
     style={[styles.button, tone === 'danger' && styles.danger, style]}>
-    {focused => (
-      <Text style={[styles.label, focused && styles.labelFocused]} numberOfLines={1}>
+    {(focused) => (
+      <Text
+        style={[styles.label, focused && styles.labelFocused]}
+        numberOfLines={1}>
         {label}
       </Text>
     )}
@@ -37,8 +39,10 @@ export const ActionButton = ({
 const styles = StyleSheet.create({
   button: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    height: 38,
     minWidth: 160,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   danger: {
     borderColor: colors.danger,

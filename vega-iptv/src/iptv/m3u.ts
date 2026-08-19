@@ -1,4 +1,4 @@
-import {Category, LiveChannel, Source} from './types';
+import { Category, LiveChannel, Source } from './types';
 
 const EXTINF = '#EXTINF:';
 const ATTRIBUTE = /([a-zA-Z0-9-]+)="([^"]*)"/g;
@@ -26,7 +26,7 @@ export const UNCLASSIFIED = 'Non classé';
 export const parseM3U = (raw: string, sourceId: string): LiveChannel[] => {
   const lines = raw.split(/\r?\n/);
   const channels: LiveChannel[] = [];
-  let pending: {name: string; group: string; logo?: string; epgId?: string} | null =
+  let pending: { name: string; group: string; logo?: string; epgId?: string } | null =
     null;
 
   for (const line of lines) {
@@ -83,7 +83,7 @@ export const buildM3uCategories = (channels: LiveChannel[]): Category[] => {
   }
 
   return Array.from(counts.entries())
-    .map(([id, count]) => ({id, name: id, count}))
+    .map(([id, count]) => ({ id, name: id, count }))
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 };
 
@@ -93,7 +93,7 @@ export const fetchM3U = async (url: string): Promise<string> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const response = await fetch(url, {signal: controller.signal});
+    const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) {
       throw new Error(`La playlist a répondu ${response.status}`);
     }
@@ -103,5 +103,5 @@ export const fetchM3U = async (url: string): Promise<string> => {
   }
 };
 
-export const isM3uLike = (source: Source): source is Extract<Source, {kind: 'm3u'}> =>
+export const isM3uLike = (source: Source): source is Extract<Source, { kind: 'm3u' }> =>
   source.kind === 'm3u';

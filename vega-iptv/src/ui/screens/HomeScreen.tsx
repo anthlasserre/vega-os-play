@@ -18,12 +18,42 @@ export interface HomeScreenProps {
 }
 
 const tiles = (counts: HomeScreenProps['counts']) => [
-  {id: 'live', label: 'Direct', detail: `${counts.live} chaînes`, route: {name: 'live'} as Route},
-  {id: 'movies', label: 'Films', detail: `${counts.movies} titres`, route: {name: 'movies'} as Route},
-  {id: 'series', label: 'Séries', detail: `${counts.series} titres`, route: {name: 'series'} as Route},
-  {id: 'favorites', label: 'Favoris', detail: `${counts.favorites} éléments`, route: {name: 'favorites'} as Route},
-  {id: 'search', label: 'Recherche', detail: 'Tout le catalogue', route: {name: 'search'} as Route},
-  {id: 'settings', label: 'Réglages', detail: 'Sources et affichage', route: {name: 'settings'} as Route},
+  {
+    id: 'live',
+    label: 'Direct',
+    detail: `${counts.live} chaînes`,
+    route: {name: 'live'} as Route,
+  },
+  {
+    id: 'movies',
+    label: 'Films',
+    detail: `${counts.movies} titres`,
+    route: {name: 'movies'} as Route,
+  },
+  {
+    id: 'series',
+    label: 'Séries',
+    detail: `${counts.series} titres`,
+    route: {name: 'series'} as Route,
+  },
+  {
+    id: 'favorites',
+    label: 'Favoris',
+    detail: `${counts.favorites} éléments`,
+    route: {name: 'favorites'} as Route,
+  },
+  {
+    id: 'search',
+    label: 'Recherche',
+    detail: 'Tout le catalogue',
+    route: {name: 'search'} as Route,
+  },
+  {
+    id: 'settings',
+    label: 'Réglages',
+    detail: 'Sources et affichage',
+    route: {name: 'settings'} as Route,
+  },
 ];
 
 export const HomeScreen = ({
@@ -47,7 +77,9 @@ export const HomeScreen = ({
             Expire le {formatDate(account.expiresAt)}
             {account.maxConnections === undefined
               ? ''
-              : ` · ${account.activeConnections ?? 0}/${account.maxConnections} connexions`}
+              : ` · ${account.activeConnections ?? 0}/${
+                  account.maxConnections
+                } connexions`}
           </Text>
         </View>
       )}
@@ -60,7 +92,7 @@ export const HomeScreen = ({
           <FlatList
             horizontal={true}
             data={resumable}
-            keyExtractor={entry => entry.key}
+            keyExtractor={(entry) => entry.key}
             showsHorizontalScrollIndicator={false}
             initialNumToRender={6}
             windowSize={3}

@@ -5,7 +5,7 @@
  * ainsi le vrai parseur, pas un chemin de code parallèle.
  *
  * Les entrées MP4 se lisent avec le moteur URL fourni par le SDK Vega.
- * Les entrées HLS ont besoin du moteur MSE (voir src/player/shaka/index.ts).
+ * Les entrées HLS passent par Shaka, en mode MSE (voir src/player/shaka/).
  */
 export const DEMO_M3U = `#EXTM3U
 #EXTINF:-1 tvg-id="demo.bbb" group-title="Démo · MP4",Big Buck Bunny

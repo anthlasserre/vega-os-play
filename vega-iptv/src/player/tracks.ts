@@ -52,7 +52,7 @@ export const labelTrack = (track: NamedTrack, index: number): string => {
 };
 
 /** Accès indexé aux `TrackList` du W3C, que le typage Vega n'expose pas. */
-export const readTrackList = <T>(list: {length: number} | undefined): T[] => {
+export const readTrackList = <T>(list: { length: number } | undefined): T[] => {
   if (list === undefined) {
     return [];
   }

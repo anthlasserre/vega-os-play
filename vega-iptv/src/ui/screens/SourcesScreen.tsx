@@ -1,5 +1,12 @@
 import React, {useState} from 'react';
-import {FlatList, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import {TVFocusGuideView} from '@amazon-devices/react-native-kepler';
 import {ActionButton} from '../components/ActionButton';
 import {MediaCard} from '../components/MediaCard';
@@ -47,10 +54,10 @@ export const SourcesScreen = ({
   onBack,
 }: SourcesScreenProps) => {
   const [draft, setDraft] = useState<Draft>('xtream');
-  const [label, setLabel] = useState('');
-  const [host, setHost] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [label, setLabel] = useState('LaFranceIPTV');
+  const [host, setHost] = useState('http://vpn.aboabo.lol:80');
+  const [username, setUsername] = useState('8crnzofsr0');
+  const [password, setPassword] = useState('docinacbn5');
   const [url, setUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -62,7 +69,11 @@ export const SourcesScreen = ({
     }
 
     if (draft === 'xtream') {
-      if (host.trim() === '' || username.trim() === '' || password.trim() === '') {
+      if (
+        host.trim() === '' ||
+        username.trim() === '' ||
+        password.trim() === ''
+      ) {
         setError('Hôte, identifiant et mot de passe sont requis.');
         return;
       }
@@ -103,7 +114,7 @@ export const SourcesScreen = ({
         <TVFocusGuideView style={styles.list}>
           <FlatList
             data={sources}
-            keyExtractor={source => source.id}
+            keyExtractor={(source) => source.id}
             initialNumToRender={10}
             windowSize={5}
             maxToRenderPerBatch={10}
@@ -113,7 +124,9 @@ export const SourcesScreen = ({
               <View style={styles.sourceRow}>
                 <MediaCard
                   testID={`source-${item.id}`}
-                  title={`${item.id === activeSourceId ? '● ' : ''}${item.label}`}
+                  title={`${item.id === activeSourceId ? '● ' : ''}${
+                    item.label
+                  }`}
                   subtitle={describe(item)}
                   layout="list"
                   hasTVPreferredFocus={index === 0}
@@ -124,20 +137,21 @@ export const SourcesScreen = ({
                   ]}
                 />
                 {item.kind !== 'demo' && (
-                  <ActionButton
+                  <TouchableOpacity
                     testID={`source-remove-${item.id}`}
-                    label="Supprimer"
-                    tone="danger"
                     onPress={() => onRemove(item.id)}
-                    style={styles.remove}
-                  />
+                    style={styles.remove}>
+                    <Text style={styles.removeText}>{'🗑️'}</Text>
+                  </TouchableOpacity>
                 )}
               </View>
             )}
           />
         </TVFocusGuideView>
 
-        <ScrollView style={styles.form} contentContainerStyle={styles.formContent}>
+        <ScrollView
+          style={styles.form}
+          contentContainerStyle={styles.formContent}>
           <Text style={styles.formTitle}>Ajouter une source</Text>
 
           <TVFocusGuideView style={styles.kindRow}>
@@ -205,8 +219,18 @@ export const SourcesScreen = ({
           )}
 
           <TVFocusGuideView style={styles.actions}>
-            <ActionButton testID="source-submit" label="Ajouter" onPress={submit} style={styles.action} />
-            <ActionButton testID="sources-back" label="Retour" onPress={onBack} style={styles.action} />
+            <ActionButton
+              testID="source-submit"
+              label="Ajouter"
+              onPress={submit}
+              style={styles.action}
+            />
+            <ActionButton
+              testID="sources-back"
+              label="Retour"
+              onPress={onBack}
+              style={styles.action}
+            />
           </TVFocusGuideView>
         </ScrollView>
       </View>
@@ -232,7 +256,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   list: {
-    flex: 1,
+    width: 340,
     marginRight: spacing.lg,
   },
   sourceRow: {
@@ -248,7 +272,17 @@ const styles = StyleSheet.create({
   },
   remove: {
     marginLeft: spacing.xs,
-    minWidth: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 38,
+    width: 38,
+  },
+  removeText: {
+    color: colors.text,
+    fontSize: fontSize.title,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 38,
   },
   form: {
     width: 620,

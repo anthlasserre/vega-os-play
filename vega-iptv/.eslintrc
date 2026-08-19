@@ -32,6 +32,12 @@
     "babel.config.js",
     "metro.config.js",
     "jest.config.js",
-    "package-lock.json"
-  ]
+    "package-lock.json",
+    "src/PlayerInterface.ts",
+    "src/polyfills/**",
+    "src/shakaplayer/**"
+  ],
+  "env": {
+    "es2020": true
+  }
 }

@@ -201,16 +201,17 @@ release rejouée produit le même paquet. Le device virtuel, 2,5 Go inutiles à 
 construction, est retiré avant mise en cache. Première exécution ≈ 10 min
 d'installation du SDK ; les suivantes repartent du cache.
 
-## Ce qui marchera — et ce qui ne marchera pas encore
+## Ce qui marchera
 
 Au premier lancement, l'app démarre sur la playlist de démo. Ajouter un portail
 Xtream depuis `Réglages > Gérer les sources`.
 
-**Les chaînes en direct ne se liront pas.** Un flux live Xtream est servi en
-HLS, et le mode MSE attend le `dist` Shaka patché Vega (voir la section dédiée
-du README). L'app affiche un message explicite plutôt qu'un écran noir.
-En revanche, les **films et épisodes en `.mp4` / `.mkv`** passent par le mode
-URL et se lisent dès maintenant : c'est le bon chemin pour valider le déploiement.
+Les **films et épisodes en `.mp4` / `.mkv`** passent par le mode URL du lecteur
+Vega. Les **chaînes en direct**, servies en HLS par un portail Xtream, passent
+par le mode MSE : elles exigent le lecteur Shaka patché Vega, que
+`npm run setup:shaka` construit avant le premier `build:debug` (voir la section
+dédiée du README). Sans cette étape, le direct s'arrête sur un message explicite
+plutôt que sur un écran noir.
 
 ## Problèmes courants
 

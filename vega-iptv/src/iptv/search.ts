@@ -1,4 +1,4 @@
-import {Catalog, MediaItem} from './types';
+import { Catalog, MediaItem } from './types';
 
 /**
  * Retire les marques diacritiques produites par la normalisation NFD.
@@ -49,7 +49,7 @@ export const searchCatalog = (
   const needles = normalise(query).split(/\s+/).filter(part => part.length > 0);
 
   if (needles.length === 0) {
-    return {live: [], movies: [], series: [], total: 0};
+    return { live: [], movies: [], series: [], total: 0 };
   }
 
   const live = catalog.live.items.filter(item => matches(item.name, needles));

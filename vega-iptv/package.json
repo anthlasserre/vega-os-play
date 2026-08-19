@@ -17,21 +17,26 @@
     "build:app": "npm-run-all build:release",
     "build": "npm-run-all build:release",
     "release": "npm-run-all lint typecheck test build:app",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "setup:shaka": "bash scripts/setup-shaka.sh"
   },
   "dependencies": {
+    "@amazon-devices/kepler-file-system": "~0.0.7",
     "@amazon-devices/react-native-kepler": "~4.0.0",
-    "react": "19.2.0",
-    "react-native": "0.83.0",
     "@amazon-devices/react-native-w3cmedia": "~2.3.2",
-    "@amazon-devices/kepler-file-system": "~0.0.7"
+    "@tsconfig/react-native": "^3.0.9",
+    "@xmldom/xmldom": "^0.9.11",
+    "base-64": "1.0.0",
+    "fastestsmallesttextencoderdecoder": "1.0.22",
+    "react": "19.2.0",
+    "react-native": "0.83.0"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "@amazon-devices/kepler-cli-platform": "^0",
     "@amazon-devices/eslint-plugin-kepler": "^0.1.4",
+    "@amazon-devices/kepler-cli-platform": "^0",
     "@react-native-community/cli": "20.0.0",
     "@react-native/babel-preset": "0.83.0",
     "@react-native/eslint-config": "0.83.0",
