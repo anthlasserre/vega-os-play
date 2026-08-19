@@ -1,4 +1,9 @@
-import {DEMO_SOURCE, defaultState, parseState} from '../../src/storage/schema';
+import {
+  DEFAULT_LIVE_BUFFER_SECONDS,
+  DEMO_SOURCE,
+  defaultState,
+  parseState,
+} from '../../src/storage/schema';
 
 describe('parseState', () => {
   it('retombe sur les valeurs par défaut sur une entrée non-objet', () => {
@@ -55,6 +60,10 @@ describe('parseState', () => {
   it('conserve des réglages valides', () => {
     expect(
       parseState({settings: {layout: 'list', resumePlayback: false}}).settings,
-    ).toEqual({layout: 'list', resumePlayback: false});
+    ).toEqual({
+      layout: 'list',
+      resumePlayback: false,
+      liveBufferSeconds: DEFAULT_LIVE_BUFFER_SECONDS,
+    });
   });
 });

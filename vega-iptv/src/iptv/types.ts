@@ -35,6 +35,24 @@ export interface Movie {
   plot?: string;
   durationSeconds?: number;
   genre?: string;
+  /** Identifiant natif Xtream, nécessaire pour charger la fiche détaillée. */
+  streamId?: number;
+}
+
+/**
+ * Métadonnées absentes de `get_vod_streams`.
+ *
+ * Le protocole ne les expose que par `get_vod_info`, un appel par film : sur un
+ * catalogue de 36 000 titres il est hors de question de les précharger, on les
+ * récupère à l'ouverture d'une fiche.
+ */
+export interface MovieDetails {
+  plot?: string;
+  genre?: string;
+  year?: string;
+  durationSeconds?: number;
+  rating?: number;
+  poster?: string;
 }
 
 export interface Episode {

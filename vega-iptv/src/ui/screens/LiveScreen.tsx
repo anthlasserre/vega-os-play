@@ -15,6 +15,9 @@ export interface LiveScreenProps {
   catalog: Catalog;
   source: Source;
   state: PersistedState;
+  /** Catégories masquées, affiché sur le bouton de filtrage. */
+  hiddenCount: number;
+  onOpenFilter: () => void;
   onPlay: (channel: LiveChannel) => void;
   onBack: () => void;
 }
@@ -26,6 +29,8 @@ export const LiveScreen = ({
   catalog,
   source,
   state,
+  hiddenCount,
+  onOpenFilter,
   onPlay,
   onBack,
 }: LiveScreenProps) => {
@@ -81,20 +86,26 @@ export const LiveScreen = ({
     return () => clearTimeout(timer);
   }, [source, focusedStreamId]);
 
+  // Nom lisible plutôt qu'un identifiant numérique : la première version
+  // affichait « 1363 » sous chaque chaîne, ce qui ne renseigne personne.
+  const categoryNames = useMemo(
+    () => new Map(catalog.live.categories.map(c => [c.id, c.name])),
+    [catalog.live.categories],
+  );
+
   const items = useMemo(
     () =>
       catalog.live.items.map((channel) => ({
         id: channel.id,
         title: channel.name,
-        subtitle:
-          channel.archiveDays > 0
-            ? `Replay ${channel.archiveDays} j`
-            : undefined,
+        subtitle: categoryNames.get(channel.categoryId),
         image: channel.logo,
+        badge:
+          channel.archiveDays > 0 ? `↺ ${channel.archiveDays} j` : undefined,
         favorite: state.favorites.includes(mediaKey('live', channel.id)),
         categoryId: channel.categoryId,
       })),
-    [catalog.live.items, state.favorites],
+    [catalog.live.items, categoryNames, state.favorites],
   );
 
   const handleSelect = useCallback(
@@ -113,9 +124,12 @@ export const LiveScreen = ({
       categories={catalog.live.categories}
       items={items}
       layout="list"
+      showLogos={true}
       emptyLabel="Aucune chaîne dans cette catégorie."
       onSelect={handleSelect}
       onFocusItem={setFocusedId}
+      onOpenFilter={onOpenFilter}
+      hiddenCount={hiddenCount}
       onBack={onBack}
       aside={
         <EpgPanel

@@ -22,9 +22,11 @@ export type Route =
   | {name: 'movie'; id: string}
   | {name: 'seriesDetail'; id: string}
   | {name: 'favorites'}
+  | {name: 'history'}
   | {name: 'search'}
   | {name: 'settings'}
   | {name: 'sources'}
+  | {name: 'categoryFilter'; kind: MediaKind}
   | {name: 'player'; target: PlaybackTarget};
 
 /**

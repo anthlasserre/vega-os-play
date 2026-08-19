@@ -6,6 +6,9 @@ import {PersistedState} from '../../storage/schema';
 export interface SeriesScreenProps {
   catalog: Catalog;
   state: PersistedState;
+  /** Catégories masquées, affiché sur le bouton de filtrage. */
+  hiddenCount: number;
+  onOpenFilter: () => void;
   onSelect: (series: Series) => void;
   onBack: () => void;
 }
@@ -13,6 +16,8 @@ export interface SeriesScreenProps {
 export const SeriesScreen = ({
   catalog,
   state,
+  hiddenCount,
+  onOpenFilter,
   onSelect,
   onBack,
 }: SeriesScreenProps) => {
@@ -53,6 +58,8 @@ export const SeriesScreen = ({
       layout={state.settings.layout}
       emptyLabel="Aucune série. Les playlists M3U n'exposent pas de séries : il faut un portail Xtream."
       onSelect={handleSelect}
+      onOpenFilter={onOpenFilter}
+      hiddenCount={hiddenCount}
       onBack={onBack}
     />
   );

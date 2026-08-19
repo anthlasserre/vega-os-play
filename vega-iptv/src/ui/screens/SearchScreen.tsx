@@ -4,6 +4,8 @@ import {TVFocusGuideView} from '@amazon-devices/react-native-kepler';
 import {ActionButton} from '../components/ActionButton';
 import {MediaCard} from '../components/MediaCard';
 import {TextField} from '../components/TextField';
+import {useLayout} from '../layout';
+import {imageOf} from '../mediaItem';
 import {searchCatalog} from '../../iptv/search';
 import {Catalog, MediaItem} from '../../iptv/types';
 import {colors, fontSize, spacing} from '../../theme';
@@ -27,6 +29,7 @@ export const SearchScreen = ({
   onBack,
 }: SearchScreenProps) => {
   const [query, setQuery] = useState('');
+  const metrics = useLayout();
 
   const results = useMemo(
     () =>
@@ -46,8 +49,21 @@ export const SearchScreen = ({
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Recherche</Text>
+    <View
+      style={[
+        styles.container,
+        {paddingHorizontal: metrics.gutter, paddingVertical: metrics.vGutter},
+      ]}>
+      <TVFocusGuideView style={styles.header}>
+        <Text style={styles.title}>Recherche</Text>
+        <ActionButton
+          testID="search-back"
+          label="Retour"
+          icon="back"
+          iconOnly={true}
+          onPress={onBack}
+        />
+      </TVFocusGuideView>
 
       <TextField
         testID="search-input"
@@ -55,6 +71,7 @@ export const SearchScreen = ({
         value={query}
         onChangeText={setQuery}
         placeholder="ex. bein sport"
+        icon="search"
         hasTVPreferredFocus={true}
         style={styles.field}
       />
@@ -81,20 +98,16 @@ export const SearchScreen = ({
               testID={`result-${row.item.id}`}
               title={row.item.name}
               subtitle={row.section}
+              image={imageOf(row.item)}
               layout="list"
+              rowHeight={metrics.rowHeight}
+              logoSlot={{width: metrics.logoWidth, height: metrics.logoHeight}}
               onPress={() => onSelect(row.item)}
               style={styles.row}
             />
           )}
         />
       </TVFocusGuideView>
-
-      <ActionButton
-        testID="search-back"
-        label="Retour"
-        onPress={onBack}
-        style={styles.back}
-      />
     </View>
   );
 };
@@ -103,32 +116,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
   },
   title: {
     color: colors.text,
     fontSize: fontSize.title,
     fontWeight: '700',
-    marginBottom: spacing.sm,
   },
   field: {
-    maxWidth: 900,
+    maxWidth: 640,
   },
   summary: {
     color: colors.textMuted,
-    fontSize: fontSize.caption,
-    marginBottom: spacing.sm,
+    fontSize: fontSize.micro,
+    marginBottom: spacing.xs,
   },
   results: {
     flex: 1,
   },
   row: {
-    marginBottom: spacing.xs,
-    maxWidth: 1200,
-  },
-  back: {
-    marginTop: spacing.xs,
-    alignSelf: 'flex-start',
+    marginBottom: spacing.xxs,
+    maxWidth: 700,
   },
 });

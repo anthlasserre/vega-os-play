@@ -4,23 +4,43 @@ import {useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {StoreProvider, useStore} from './storage/StoreProvider';
 import {
   addSource,
+  applyCategoryFilter,
+  clearHistory,
   clearProgress,
+  hiddenCategoriesFor,
+  hideAllCategories,
   isFavorite,
   progressFor,
+  recordHistory,
   recordProgress,
+  removeHistoryEntry,
   removeSource,
   selectSource,
+  showAllCategories,
+  toggleCategoryHidden,
   toggleFavorite,
   updateSettings,
 } from './storage/reducers';
-import {PlaybackProgress} from './storage/schema';
-import {emptyCatalog, loadCatalog, loadSeriesEpisodes} from './iptv/catalog';
+import {
+  HistoryEntry,
+  PlaybackProgress,
+  filterKey,
+  nextLiveBuffer,
+} from './storage/schema';
+import {
+  emptyCatalog,
+  loadCatalog,
+  loadMovieDetails,
+  loadSeriesEpisodes,
+} from './iptv/catalog';
 import {
   Catalog,
   Episode,
   LiveChannel,
   MediaItem,
+  MediaKind,
   Movie,
+  MovieDetails,
   Series,
   Source,
   mediaKey,
@@ -34,7 +54,9 @@ import {
   pushRoute,
 } from './ui/navigation';
 import {ActionButton} from './ui/components/ActionButton';
+import {CategoryFilterScreen} from './ui/screens/CategoryFilterScreen';
 import {FavoritesScreen} from './ui/screens/FavoritesScreen';
+import {HistoryScreen} from './ui/screens/HistoryScreen';
 import {HomeScreen} from './ui/screens/HomeScreen';
 import {LiveScreen} from './ui/screens/LiveScreen';
 import {MovieDetailScreen} from './ui/screens/MovieDetailScreen';
@@ -46,6 +68,18 @@ import {SeriesScreen} from './ui/screens/SeriesScreen';
 import {SettingsScreen} from './ui/screens/SettingsScreen';
 import {SourcesScreen} from './ui/screens/SourcesScreen';
 import {colors, fontSize, spacing} from './theme';
+
+/**
+ * Retire les clés à `undefined` avant une fusion par étalement.
+ *
+ * `{...movie, ...details}` écraserait sinon une valeur du catalogue par un
+ * `undefined` venu d'un champ que le panel n'a pas rempli — l'affiche
+ * disparaîtrait dès que `get_vod_info` omet `movie_image`.
+ */
+const prune = <T extends object>(value: T): Partial<T> =>
+  Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  ) as Partial<T>;
 
 const Shell = () => {
   const {state, ready, update} = useStore();
@@ -61,6 +95,10 @@ const Shell = () => {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [episodesLoading, setEpisodesLoading] = useState(false);
   const [episodesError, setEpisodesError] = useState<string | null>(null);
+
+  // Détails du film ouvert. `get_vod_streams` ne renvoie ni résumé, ni genre, ni
+  // durée : sans cet appel la fiche reste un titre et une affiche.
+  const [movieDetails, setMovieDetails] = useState<MovieDetails>({});
 
   const source = useMemo<Source | null>(
     () => state.sources.find(entry => entry.id === state.activeSourceId) ?? null,
@@ -146,9 +184,31 @@ const Shell = () => {
 
   const play = useCallback(
     (target: PlaybackTarget) => {
+      // Le journal se remplit au lancement, pas à l'arrêt : on veut y retrouver
+      // même une chaîne quittée au bout de dix secondes parce qu'elle ne
+      // fonctionnait pas.
+      update(previous =>
+        recordHistory(previous, {
+          key: mediaKey(target.kind, target.itemId),
+          kind: target.kind,
+          itemId: target.itemId,
+          sourceId: target.sourceId,
+          title: target.title,
+          subtitle: target.subtitle,
+          poster: target.poster,
+          url: target.url,
+          live: target.live,
+          watchedAt: Date.now(),
+        }),
+      );
       push({name: 'player', target});
     },
-    [push],
+    [push, update],
+  );
+
+  const liveCategoryNames = useMemo(
+    () => new Map(catalog.live.categories.map(entry => [entry.id, entry.name])),
+    [catalog.live.categories],
   );
 
   const playChannel = useCallback(
@@ -158,13 +218,14 @@ const Shell = () => {
         itemId: channel.id,
         sourceId: source?.id ?? '',
         title: channel.name,
-        subtitle: channel.categoryId,
+        // Le nom de la catégorie, pas son identifiant : l'OSD affichait « 1363 ».
+        subtitle: liveCategoryNames.get(channel.categoryId),
         poster: channel.logo,
         url: channel.url,
         live: true,
       });
     },
-    [play, source],
+    [play, source, liveCategoryNames],
   );
 
   const playMovie = useCallback(
@@ -201,6 +262,23 @@ const Shell = () => {
     [play, source, state.settings.resumePlayback],
   );
 
+  const openMovie = useCallback(
+    (movie: Movie) => {
+      push({name: 'movie', id: movie.id});
+      setMovieDetails({});
+
+      if (source === null) {
+        return;
+      }
+      loadMovieDetails(source, movie.streamId)
+        .then(setMovieDetails)
+        // Un échec ici n'est pas bloquant : la fiche reste utilisable, elle est
+        // seulement moins renseignée. Inutile d'alerter l'utilisateur.
+        .catch(() => setMovieDetails({}));
+    },
+    [push, source],
+  );
+
   const openItem = useCallback(
     (item: MediaItem) => {
       switch (item.kind) {
@@ -208,14 +286,71 @@ const Shell = () => {
           playChannel(item);
           break;
         case 'movie':
-          push({name: 'movie', id: item.id});
+          openMovie(item);
           break;
         case 'series':
           openSeries(item);
           break;
       }
     },
-    [playChannel, openSeries, push],
+    [playChannel, openSeries, openMovie],
+  );
+
+  const sourceId = source?.id ?? '';
+
+  /**
+   * Catalogue vu par les écrans de parcours, catégories masquées retirées.
+   *
+   * Les favoris, la recherche et l'historique gardent le catalogue complet :
+   * masquer une catégorie sert à épurer la navigation, pas à rendre inaccessible
+   * un film déjà mis de côté.
+   */
+  const {hiddenCategories} = state;
+  const browseCatalog = useMemo<Catalog>(() => {
+    const hidden = (kind: MediaKind): string[] =>
+      hiddenCategories[filterKey(sourceId, kind)] ?? [];
+
+    return {
+      live: applyCategoryFilter(
+        hidden('live'),
+        catalog.live.categories,
+        catalog.live.items,
+      ),
+      movies: applyCategoryFilter(
+        hidden('movie'),
+        catalog.movies.categories,
+        catalog.movies.items,
+      ),
+      series: applyCategoryFilter(
+        hidden('series'),
+        catalog.series.categories,
+        catalog.series.items,
+      ),
+      account: catalog.account,
+    };
+    // Mémoïsé sur `hiddenCategories` seul, et non sur `state` : filtrer 36 000
+    // films à chaque tick de progression de lecture serait absurde.
+  }, [catalog, hiddenCategories, sourceId]);
+
+  const replay = useCallback(
+    (entry: HistoryEntry) => {
+      const started = progressFor(state, entry.kind, entry.itemId);
+      play({
+        kind: entry.kind,
+        itemId: entry.itemId,
+        sourceId: entry.sourceId,
+        title: entry.title,
+        subtitle: entry.subtitle,
+        poster: entry.poster,
+        url: entry.url,
+        live: entry.live,
+        startAt:
+          !entry.live && state.settings.resumePlayback
+            ? started?.positionSeconds ?? 0
+            : 0,
+      });
+    },
+    [play, state],
   );
 
   const resume = useCallback(
@@ -303,9 +438,11 @@ const Shell = () => {
     case 'live':
       return (
         <LiveScreen
-          catalog={catalog}
+          catalog={browseCatalog}
           source={source}
           state={state}
+          hiddenCount={hiddenCategoriesFor(state, sourceId, 'live').length}
+          onOpenFilter={() => push({name: 'categoryFilter', kind: 'live'})}
           onPlay={playChannel}
           onBack={goBack}
         />
@@ -314,9 +451,11 @@ const Shell = () => {
     case 'movies':
       return (
         <MoviesScreen
-          catalog={catalog}
+          catalog={browseCatalog}
           state={state}
-          onSelect={movie => push({name: 'movie', id: movie.id})}
+          hiddenCount={hiddenCategoriesFor(state, sourceId, 'movie').length}
+          onOpenFilter={() => push({name: 'categoryFilter', kind: 'movie'})}
+          onSelect={openMovie}
           onBack={goBack}
         />
       );
@@ -324,9 +463,56 @@ const Shell = () => {
     case 'series':
       return (
         <SeriesScreen
-          catalog={catalog}
+          catalog={browseCatalog}
           state={state}
+          hiddenCount={hiddenCategoriesFor(state, sourceId, 'series').length}
+          onOpenFilter={() => push({name: 'categoryFilter', kind: 'series'})}
           onSelect={openSeries}
+          onBack={goBack}
+        />
+      );
+
+    case 'categoryFilter': {
+      const {kind} = route;
+      // Les catégories proposées viennent du catalogue *complet* : une catégorie
+      // déjà masquée doit rester listée pour pouvoir la réafficher.
+      const categories =
+        kind === 'live'
+          ? catalog.live.categories
+          : kind === 'movie'
+          ? catalog.movies.categories
+          : catalog.series.categories;
+
+      return (
+        <CategoryFilterScreen
+          kind={kind}
+          categories={categories}
+          hidden={hiddenCategoriesFor(state, sourceId, kind)}
+          onToggle={categoryId =>
+            update(previous =>
+              toggleCategoryHidden(previous, sourceId, kind, categoryId),
+            )
+          }
+          onShowAll={() =>
+            update(previous => showAllCategories(previous, sourceId, kind))
+          }
+          onHideAll={() =>
+            update(previous =>
+              hideAllCategories(previous, sourceId, kind, categories),
+            )
+          }
+          onBack={goBack}
+        />
+      );
+    }
+
+    case 'history':
+      return (
+        <HistoryScreen
+          history={state.history}
+          onReplay={replay}
+          onRemove={key => update(previous => removeHistoryEntry(previous, key))}
+          onClear={() => update(clearHistory)}
           onBack={goBack}
         />
       );
@@ -344,7 +530,9 @@ const Shell = () => {
       }
       return (
         <MovieDetailScreen
-          movie={movie}
+          // Les détails chargés à la demande complètent la fiche du catalogue,
+          // sans jamais l'écraser : `poster` du catalogue est déjà bon.
+          movie={{...movie, ...prune(movieDetails)}}
           favorite={isFavorite(state, 'movie', movie.id)}
           resume={progressFor(state, 'movie', movie.id)}
           onPlay={startAt => playMovie(movie, startAt)}
@@ -423,7 +611,17 @@ const Shell = () => {
               }),
             )
           }
-          onClearHistory={() => update(clearProgress)}
+          onCycleLiveBuffer={() =>
+            update(previous =>
+              updateSettings(previous, {
+                liveBufferSeconds: nextLiveBuffer(previous.settings.liveBufferSeconds),
+              }),
+            )
+          }
+          onClearResume={() => update(clearProgress)}
+          onClearHistory={() => update(clearHistory)}
+          onOpenHistory={() => push({name: 'history'})}
+          onOpenFilter={kind => push({name: 'categoryFilter', kind})}
           onReloadCatalog={() => setReloadToken(token => token + 1)}
           onOpenSources={() => push({name: 'sources'})}
           onBack={goBack}
@@ -435,6 +633,7 @@ const Shell = () => {
       return (
         <PlayerScreen
           target={target}
+          bufferSeconds={state.settings.liveBufferSeconds}
           favorite={isFavorite(state, target.kind, target.itemId)}
           onProgress={snapshot => handleProgress(target, snapshot)}
           onToggleFavorite={() =>
@@ -451,14 +650,17 @@ const Shell = () => {
           source={source}
           account={catalog.account}
           counts={{
-            live: catalog.live.items.length,
-            movies: catalog.movies.items.length,
-            series: catalog.series.items.length,
+            live: browseCatalog.live.items.length,
+            movies: browseCatalog.movies.items.length,
+            series: browseCatalog.series.items.length,
             favorites: state.favorites.length,
+            history: state.history.length,
           }}
           resumable={state.progress}
+          recent={state.history}
           onNavigate={push}
           onResume={resume}
+          onReplay={replay}
         />
       );
   }

@@ -5,6 +5,7 @@ import {
   RawSeriesInfo,
   RawShortEpg,
   RawUserInfo,
+  RawVodInfo,
   RawVodStream,
 } from './raw';
 import {XtreamSource} from '../types';
@@ -68,6 +69,15 @@ export const fetchVodCategories = async (source: XtreamSource) =>
 export const fetchVodStreams = async (source: XtreamSource) =>
   asArray<RawVodStream>(
     await request(playerApiUrl(source, 'get_vod_streams'), 'Films'),
+  );
+
+export const fetchVodInfo = (
+  source: XtreamSource,
+  vodId: number,
+): Promise<RawVodInfo> =>
+  request<RawVodInfo>(
+    playerApiUrl(source, 'get_vod_info', {vod_id: vodId}),
+    'Fiche du film',
   );
 
 export const fetchSeriesCategories = async (source: XtreamSource) =>

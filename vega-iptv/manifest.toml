@@ -57,6 +57,20 @@ id = "com.amazon.audio.stream"
 [[wants.service]]
 id = "com.amazon.audio.control"
 
+# Sans cette déclaration, les journaux de l'appareil répètent
+# « Binder: Unable connect to 'com.amazon.audio.system'. Missing the permissions
+# needed to connect to the service. » à chaque lecture.
+[[wants.service]]
+id = "com.amazon.audio.system"
+
+# Clavier système. Un champ de saisie peut recevoir le focus D-PAD sans lui, mais
+# aucun clavier n'apparaît : rien ne se saisit à la télécommande.
+[[wants.service]]
+id = "com.amazon.inputmethod.service"
+
+[[wants.service]]
+id = "com.amazon.inputmethod.client"
+
 [[wants.privilege]]
 id = "com.amazon.devconf.privilege.accessibility"
 

@@ -6,6 +6,7 @@ import {
   EpgEntry,
   LiveChannel,
   Movie,
+  MovieDetails,
   Series,
   XtreamSource,
 } from '../types';
@@ -18,6 +19,7 @@ import {
   RawSeriesInfo,
   RawShortEpg,
   RawUserInfo,
+  RawVodInfo,
   RawVodStream,
 } from './raw';
 import { episodeStreamUrl, liveStreamUrl, movieStreamUrl } from './urls';
@@ -116,8 +118,27 @@ export const mapMovies = (source: XtreamSource, raw: RawVodStream[]): Movie[] =>
           : String(entry.category_id),
         poster: toText(entry.stream_icon),
         rating: toNumber(entry.rating),
+        streamId,
       };
     });
+
+/**
+ * Détails d'un film, tels que `get_vod_info` les renvoie.
+ *
+ * Tous les champs sont optionnels : les panels remplissent ce bloc de façon très
+ * inégale, et une fiche sans résumé reste une fiche valide.
+ */
+export const mapMovieDetails = (raw: RawVodInfo): MovieDetails => {
+  const info = raw.info ?? {};
+  return {
+    plot: toText(info.plot),
+    genre: toText(info.genre),
+    year: toText(info.releasedate)?.slice(0, 4),
+    durationSeconds: toNumber(info.duration_secs),
+    rating: toNumber(info.rating),
+    poster: toText(info.movie_image),
+  };
+};
 
 export const mapSeries = (source: XtreamSource, raw: RawSeries[]): Series[] =>
   raw

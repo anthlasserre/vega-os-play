@@ -18,7 +18,8 @@
     "build": "npm-run-all build:release",
     "release": "npm-run-all lint typecheck test build:app",
     "typecheck": "tsc --noEmit",
-    "setup:shaka": "bash scripts/setup-shaka.sh"
+    "setup:shaka": "bash scripts/setup-shaka.sh",
+    "build:icons": "python3 scripts/build-icons.py"
   },
   "dependencies": {
     "@amazon-devices/kepler-file-system": "~0.0.7",

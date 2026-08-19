@@ -1,4 +1,9 @@
-import {extensionOf, streamKindOf} from '../../src/player/streamKind';
+import {
+  containerOf,
+  extensionOf,
+  isRiskyContainer,
+  streamKindOf,
+} from '../../src/player/streamKind';
 
 describe('extensionOf', () => {
   it('ignore la query string et le fragment', () => {
@@ -24,4 +29,35 @@ describe('streamKindOf', () => {
     'route %s vers le mode MSE',
     url => expect(streamKindOf(url)).toBe('mse'),
   );
+});
+
+describe('containerOf', () => {
+  it('rend le conteneur en majuscules', () => {
+    expect(containerOf('http://h/movie/u/p/12.mkv')).toBe('MKV');
+    expect(containerOf('http://h/movie/u/p/12.MP4')).toBe('MP4');
+  });
+
+  it('rend une chaîne vide sans extension', () => {
+    expect(containerOf('http://h/live/u/p/12')).toBe('');
+  });
+});
+
+describe('isRiskyContainer', () => {
+  it('signale le Matroska', () => {
+    // Mesuré sur appareil : réponse 206 en video/x-matroska, signature EBML
+    // correcte, et pourtant MEDIA_ERR_SRC_NOT_SUPPORTED côté lecteur.
+    expect(isRiskyContainer('http://h/movie/u/p/12.mkv')).toBe(true);
+    expect(isRiskyContainer('http://h/movie/u/p/12.MKV')).toBe(true);
+  });
+
+  it('laisse passer ce qui se lit', () => {
+    expect(isRiskyContainer('http://h/movie/u/p/12.mp4')).toBe(false);
+    expect(isRiskyContainer('http://h/live/u/p/12.m3u8')).toBe(false);
+  });
+
+  it('garde le MKV en mode URL malgré le risque', () => {
+    // On prévient sans interdire : la mesure vient d'un appareil virtuel, et
+    // bloquer l'essai serait plus dommageable que de laisser échouer.
+    expect(streamKindOf('http://h/movie/u/p/12.mkv')).toBe('url');
+  });
 });

@@ -8,7 +8,7 @@ import './polyfills';
 import {VideoPlayer} from '@amazon-devices/react-native-w3cmedia/dist/headless';
 import {ShakaPlayer, ShakaPlayerSettings} from '../../shakaplayer/ShakaPlayer';
 import {extensionOf} from '../streamKind';
-import {MseAdapter} from './index';
+import {MseAdapter, MseOptions} from './index';
 
 /**
  * Branche le Shaka patché Vega sur l'interface `MseAdapter` de l'app.
@@ -61,7 +61,42 @@ const describeContent = (url: string) => {
   };
 };
 
-export const createShakaAdapter = (player: VideoPlayer): MseAdapter => {
+/** Tampon en lecture différée : aucune contrainte de latence, on voit large. */
+const VOD_BUFFER_SECONDS = 30;
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, value));
+
+/**
+ * Impose le tampon choisi par l'utilisateur.
+ *
+ * `ShakaPlayer.load()` écrit ses propres valeurs (`bufferingGoal: 10`,
+ * `rebufferingGoal: 0.01`) en dur, sans rien exposer pour les changer : on
+ * reconfigure donc par-dessus. Le moment est contraint — voir l'appelant.
+ */
+const applyBuffering = (shaka: ShakaPlayer, seconds: number): void => {
+  const player = shaka.player;
+  if (player === null || player === undefined) {
+    console.warn('vega-iptv: tampon MSE non appliqué (lecteur absent)');
+    return;
+  }
+  // Trace volontaire : le moment de cet appel est subtil (voir l'appelant), et
+  // s'il tombait à côté le réglage serait silencieusement sans effet.
+  console.log(`vega-iptv: tampon MSE réglé à ${seconds} s`);
+  player.configure('streaming.bufferingGoal', seconds);
+  // Seuil de redémarrage après une coupure. Le garder bas rend le zapping vif ;
+  // le relever un peu quand l'utilisateur demande un gros tampon, puisqu'il le
+  // fait précisément parce que son réseau hoquette.
+  player.configure('streaming.rebufferingGoal', clamp(seconds * 0.2, 0.5, 4));
+  // Marge conservée derrière la tête de lecture, pour absorber un petit retour
+  // arrière sans re-télécharger.
+  player.configure('streaming.bufferBehind', Math.max(seconds, 10));
+};
+
+export const createShakaAdapter = (
+  player: VideoPlayer,
+  options: MseOptions,
+): MseAdapter => {
   // Les polyfills d'Amazon font pointer `document.createElement()` vers
   // `global.gmedia` : Shaka croit manipuler une balise <video>, il obtient en
   // réalité ce `VideoPlayer`. Sans cette affectation, la création du
@@ -69,10 +104,24 @@ export const createShakaAdapter = (player: VideoPlayer): MseAdapter => {
   (globalThis as any).gmedia = player;
 
   const shaka = new ShakaPlayer(player as any, SETTINGS);
+  const bufferSeconds = options.live ? options.bufferSeconds : VOD_BUFFER_SECONDS;
 
   return {
     load: async (url: string) => {
-      await shaka.load(describeContent(url), false);
+      // `ShakaPlayer.load()` est `async` mais son corps est synchrone jusqu'au
+      // `await this.player.load(...)` final : au retour de cet appel, l'instance
+      // `shaka.Player` existe et est configurée, et le téléchargement vient de
+      // démarrer. C'est la seule fenêtre où notre `configure` porte dès le
+      // premier remplissage — l'attendre d'abord laisserait le tampon d'Amazon
+      // s'appliquer au démarrage, celui qui compte pour le zapping.
+      // Le cast est là parce que la signature d'Amazon annonce `void` pour une
+      // méthode `async` — le fichier est en `@ts-nocheck`, rien ne l'a corrigée.
+      const loading = shaka.load(
+        describeContent(url),
+        false,
+      ) as unknown as Promise<void>;
+      applyBuffering(shaka, bufferSeconds);
+      await loading;
     },
     unload: async () => {
       await shaka.unload();

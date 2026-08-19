@@ -11,12 +11,15 @@ import {
   useMediaPlayer,
 } from '../../player/useMediaPlayer';
 import {TrackOption} from '../../player/tracks';
+import {useLayout} from '../layout';
 import {PlaybackTarget} from '../navigation';
 import {formatDuration} from '../format';
 import {colors, fontSize, radius, spacing} from '../../theme';
 
 export interface PlayerScreenProps {
   target: PlaybackTarget;
+  /** Tampon visé sur un direct, en secondes (réglage utilisateur). */
+  bufferSeconds: number;
   favorite: boolean;
   onProgress: (snapshot: ProgressSnapshot) => void;
   onToggleFavorite: () => void;
@@ -38,17 +41,24 @@ type Panel = 'none' | 'audio' | 'text';
 
 export const PlayerScreen = ({
   target,
+  bufferSeconds,
   favorite,
   onProgress,
   onToggleFavorite,
   onBack,
 }: PlayerScreenProps) => {
   const [panel, setPanel] = useState<Panel>('none');
+  const metrics = useLayout();
 
   // Stabilisé : le hook relance toute la lecture dès que cette référence change.
   const request = useMemo<MediaRequest>(
-    () => ({url: target.url, startAt: target.startAt, live: target.live}),
-    [target.url, target.startAt, target.live],
+    () => ({
+      url: target.url,
+      startAt: target.startAt,
+      live: target.live,
+      bufferSeconds,
+    }),
+    [target.url, target.startAt, target.live, bufferSeconds],
   );
 
   const player = useMediaPlayer(request, onProgress);
@@ -85,7 +95,7 @@ export const PlayerScreen = ({
             {target.live ? ' · direct' : ''}
           </Text>
           {player.error !== null && (
-            <Text style={styles.error} testID="player-error">
+            <Text style={styles.error} testID="player-error" numberOfLines={3}>
               {player.error}
             </Text>
           )}
@@ -113,7 +123,9 @@ export const PlayerScreen = ({
                   <MediaCard
                     testID={`track-${item.id}`}
                     title={`${item.active ? '● ' : ''}${item.label}`}
+                    subtitle={item.language === '' ? undefined : item.language}
                     layout="list"
+                    rowHeight={metrics.rowHeight}
                     hasTVPreferredFocus={index === 0}
                     onPress={() =>
                       panel === 'audio'
@@ -143,6 +155,7 @@ export const PlayerScreen = ({
             <ActionButton
               testID="player-toggle"
               label={player.status === 'playing' ? 'Pause' : 'Lecture'}
+              icon={player.status === 'playing' ? 'pause' : 'play'}
               hasTVPreferredFocus={true}
               onPress={player.togglePlayback}
               style={styles.control}
@@ -152,12 +165,14 @@ export const PlayerScreen = ({
                 <ActionButton
                   testID="player-rewind"
                   label={`− ${SEEK_SECONDS} s`}
+                  icon="rewind"
                   onPress={() => player.seekBy(-SEEK_SECONDS)}
                   style={styles.control}
                 />
                 <ActionButton
                   testID="player-forward"
                   label={`+ ${SEEK_SECONDS} s`}
+                  icon="forward"
                   onPress={() => player.seekBy(SEEK_SECONDS)}
                   style={styles.control}
                 />
@@ -166,24 +181,28 @@ export const PlayerScreen = ({
             <ActionButton
               testID="player-audio"
               label="Audio"
+              icon="audio"
               onPress={() => togglePanel('audio')}
               style={styles.control}
             />
             <ActionButton
               testID="player-subtitles"
               label="Sous-titres"
+              icon="subtitles"
               onPress={() => togglePanel('text')}
               style={styles.control}
             />
             <ActionButton
               testID="player-favorite"
-              label={favorite ? 'Retirer' : 'Favori'}
+              label={favorite ? 'Retirer des favoris' : 'Favori'}
+              icon="star"
               onPress={onToggleFavorite}
               style={styles.control}
             />
             <ActionButton
               testID="player-back"
               label="Retour"
+              icon="back"
               onPress={onBack}
               style={styles.control}
             />
@@ -205,89 +224,87 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'space-between',
-    padding: spacing.lg,
+    padding: spacing.md,
   },
   info: {
     backgroundColor: colors.overlay,
-    borderRadius: radius,
-    padding: spacing.md,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     alignSelf: 'flex-start',
     maxWidth: '70%',
   },
   title: {
     color: colors.text,
-    fontSize: fontSize.title,
+    fontSize: fontSize.subtitle,
     fontWeight: '700',
   },
   status: {
     color: colors.textMuted,
-    fontSize: fontSize.caption,
-    marginTop: 2,
+    fontSize: fontSize.micro,
   },
   error: {
     color: colors.danger,
-    fontSize: fontSize.caption,
-    marginTop: spacing.xs,
+    fontSize: fontSize.micro,
+    marginTop: spacing.xxs,
   },
   panel: {
     position: 'absolute',
-    right: spacing.lg,
-    top: spacing.lg,
-    width: 420,
-    maxHeight: 520,
+    right: spacing.md,
+    top: spacing.md,
+    width: 280,
+    maxHeight: '70%',
     backgroundColor: colors.overlay,
-    borderRadius: radius,
-    borderWidth: 2,
-    borderColor: colors.border,
-    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    padding: spacing.sm,
   },
   panelTitle: {
     color: colors.text,
-    fontSize: fontSize.body,
+    fontSize: fontSize.caption,
     fontWeight: '700',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xxs,
   },
   panelEmpty: {
     color: colors.textMuted,
-    fontSize: fontSize.caption,
+    fontSize: fontSize.micro,
   },
   track: {
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xxs,
   },
   bottom: {
     backgroundColor: colors.overlay,
-    borderRadius: radius,
-    padding: spacing.md,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   timeline: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   time: {
     color: colors.textMuted,
-    fontSize: fontSize.caption,
-    width: 110,
+    fontSize: fontSize.micro,
+    width: 64,
     textAlign: 'center',
   },
   track4: {
     flex: 1,
-    height: 6,
+    height: 4,
     backgroundColor: colors.border,
-    borderRadius: 3,
+    borderRadius: 2,
   },
   fill: {
-    height: 6,
+    height: 4,
     backgroundColor: colors.accent,
-    borderRadius: 3,
+    borderRadius: 2,
   },
   controls: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: spacing.xs,
   },
-  control: {
-    marginRight: spacing.xs,
-    marginBottom: spacing.xs,
-    minWidth: 150,
-  },
+  control: {},
 });

@@ -66,7 +66,7 @@ export const EpgPanel = ({
             />
           </View>
           {current.description !== undefined && (
-            <Text style={styles.description} numberOfLines={4}>
+            <Text style={styles.description} numberOfLines={5}>
               {current.description}
             </Text>
           )}
@@ -90,22 +90,22 @@ const styles = StyleSheet.create({
   panel: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: radius,
-    borderWidth: 2,
+    borderRadius: radius.md,
+    borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.md,
+    padding: spacing.sm,
   },
   channel: {
     color: colors.text,
-    fontSize: fontSize.body,
+    fontSize: fontSize.caption,
     fontWeight: '700',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   loader: {
     alignSelf: 'flex-start',
   },
   block: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   label: {
     color: colors.accent,
@@ -142,6 +142,6 @@ const styles = StyleSheet.create({
   },
   hint: {
     color: colors.textMuted,
-    fontSize: fontSize.caption,
+    fontSize: fontSize.micro,
   },
 });

@@ -11,7 +11,12 @@ import {
   toggleFavorite,
   updateSettings,
 } from '../../src/storage/reducers';
-import {PersistedState, PlaybackProgress, defaultState} from '../../src/storage/schema';
+import {
+  DEFAULT_LIVE_BUFFER_SECONDS,
+  PersistedState,
+  PlaybackProgress,
+  defaultState,
+} from '../../src/storage/schema';
 
 const entry = (over: Partial<PlaybackProgress> = {}): PlaybackProgress => ({
   key: 'movie:m1',
@@ -165,6 +170,7 @@ describe('updateSettings', () => {
     expect(updateSettings(defaultState(), {layout: 'list'}).settings).toEqual({
       layout: 'list',
       resumePlayback: true,
+      liveBufferSeconds: DEFAULT_LIVE_BUFFER_SECONDS,
     });
   });
 });

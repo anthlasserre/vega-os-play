@@ -1,10 +1,11 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {FlatList, StyleSheet, Text, View} from 'react-native';
 import {TVFocusGuideView} from '@amazon-devices/react-native-kepler';
 import {ActionButton} from './ActionButton';
 import {MediaCard} from './MediaCard';
+import {GRID_GAP_SIZE, gridMetrics, useLayout} from '../layout';
 import {ALL_CATEGORY_ID, Category} from '../../iptv/types';
-import {colors, fontSize, spacing} from '../../theme';
+import {colors, fontSize, radius, spacing} from '../../theme';
 
 export interface BrowsableItem {
   id: string;
@@ -14,6 +15,8 @@ export interface BrowsableItem {
   badge?: string;
   favorite?: boolean;
   progress?: number;
+  /** Pastille d'avertissement sur l'affiche (conteneur non lisible, par exemple). */
+  warning?: string;
   categoryId: string;
 }
 
@@ -29,9 +32,13 @@ export interface CatalogBrowserProps {
   aside?: React.ReactNode;
   /** Remonte l'élément survolé, pour alimenter le panneau latéral. */
   onFocusItem?: (id: string) => void;
+  /** Réserve la vignette de logo sur chaque ligne (grille de chaînes). */
+  showLogos?: boolean;
+  /** Ouvre l'écran de filtrage des catégories. Masqué si absent. */
+  onOpenFilter?: () => void;
+  /** Nombre de catégories masquées, affiché sur le bouton de filtrage. */
+  hiddenCount?: number;
 }
-
-const GRID_COLUMNS = 4;
 
 /**
  * Écran de parcours partagé par le direct, les films et les séries.
@@ -50,8 +57,23 @@ export const CatalogBrowser = ({
   emptyLabel,
   aside,
   onFocusItem,
+  showLogos,
+  onOpenFilter,
+  hiddenCount,
 }: CatalogBrowserProps) => {
   const [categoryId, setCategoryId] = useState<string>(ALL_CATEGORY_ID);
+  const metrics = useLayout();
+
+  // Une catégorie que le filtre vient de masquer ne doit pas laisser l'écran sur
+  // une liste vide sans explication : on retombe sur « Tout ».
+  useEffect(() => {
+    if (
+      categoryId !== ALL_CATEGORY_ID &&
+      !categories.some(category => category.id === categoryId)
+    ) {
+      setCategoryId(ALL_CATEGORY_ID);
+    }
+  }, [categories, categoryId]);
 
   const allCategories = useMemo<Category[]>(
     () => [
@@ -65,35 +87,84 @@ export const CatalogBrowser = ({
     () =>
       categoryId === ALL_CATEGORY_ID
         ? items
-        : items.filter((item) => item.categoryId === categoryId),
+        : items.filter(item => item.categoryId === categoryId),
     [items, categoryId],
   );
 
+  const hasAside = aside !== undefined && !metrics.compact;
+
+  // La grille se recalcule sur la largeur réellement laissée par les colonnes
+  // présentes : avec un panneau EPG, il y a une colonne d'affiches en moins.
+  const grid = useMemo(() => {
+    const mainWidth =
+      metrics.width -
+      2 * metrics.gutter -
+      metrics.sidebarWidth -
+      spacing.sm -
+      (hasAside ? metrics.asideWidth + spacing.sm : 0);
+    return gridMetrics(mainWidth);
+  }, [metrics, hasAside]);
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View
+      style={[
+        styles.container,
+        {paddingHorizontal: metrics.gutter, paddingVertical: metrics.vGutter},
+      ]}>
+      {/*
+        Les actions vivent dans l'en-tête et non sous les listes : au D-PAD, un
+        pied de page placé après une FlatList de 13 000 lignes n'est jamais
+        atteignable. Depuis la première ligne d'une liste, « haut » y mène.
+      */}
+      <TVFocusGuideView style={styles.header}>
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.counter}>
-          {visible.length} / {items.length}
-        </Text>
-      </View>
+        <View style={styles.headerRight}>
+          <Text style={styles.counter}>
+            {visible.length === items.length
+              ? `${items.length}`
+              : `${visible.length} / ${items.length}`}
+          </Text>
+          {onOpenFilter !== undefined && (
+            <ActionButton
+              label={
+                hiddenCount !== undefined && hiddenCount > 0
+                  ? `Catégories · ${hiddenCount} masquée${hiddenCount > 1 ? 's' : ''}`
+                  : 'Catégories'
+              }
+              icon="filter"
+              onPress={onOpenFilter}
+              style={styles.headerAction}
+              testID="browser-filter"
+            />
+          )}
+          <ActionButton
+            label="Retour"
+            icon="back"
+            iconOnly={true}
+            onPress={onBack}
+            style={styles.headerAction}
+            testID="browser-back"
+          />
+        </View>
+      </TVFocusGuideView>
 
       <View style={styles.body}>
-        <TVFocusGuideView style={styles.sidebar}>
+        <TVFocusGuideView style={[styles.sidebar, {width: metrics.sidebarWidth}]}>
           <FlatList
             data={allCategories}
-            keyExtractor={(category) => category.id}
-            initialNumToRender={12}
+            keyExtractor={category => category.id}
+            initialNumToRender={14}
             windowSize={5}
-            maxToRenderPerBatch={12}
+            maxToRenderPerBatch={14}
             updateCellsBatchingPeriod={50}
             removeClippedSubviews={true}
             renderItem={({item, index}) => (
               <MediaCard
                 testID={`category-${item.id}`}
                 title={item.name}
-                subtitle={`${item.count}`}
+                badge={`${item.count}`}
                 layout="list"
+                rowHeight={metrics.rowHeight}
                 hasTVPreferredFocus={index === 0}
                 onPress={() => setCategoryId(item.id)}
                 style={[
@@ -107,26 +178,39 @@ export const CatalogBrowser = ({
 
         <TVFocusGuideView style={styles.main}>
           <FlatList
-            key={`${layout}-${GRID_COLUMNS}`}
+            key={`${layout}-${grid.columns}`}
             data={visible}
-            numColumns={layout === 'grid' ? GRID_COLUMNS : 1}
-            keyExtractor={(item) => item.id}
+            numColumns={layout === 'grid' ? grid.columns : 1}
+            keyExtractor={item => item.id}
             columnWrapperStyle={layout === 'grid' ? styles.gridRow : undefined}
-            initialNumToRender={12}
+            initialNumToRender={layout === 'grid' ? grid.columns * 3 : 14}
             windowSize={5}
-            maxToRenderPerBatch={12}
+            maxToRenderPerBatch={layout === 'grid' ? grid.columns * 2 : 14}
             updateCellsBatchingPeriod={50}
             removeClippedSubviews={true}
             renderItem={({item}) => (
               <MediaCard
                 testID={`item-${item.id}`}
                 title={item.title}
-                subtitle={item.subtitle}
+                // Dans une catégorie donnée, répéter son nom sous chaque ligne
+                // n'apporte rien : le sous-titre ne sert qu'en vue « Tout ».
+                subtitle={
+                  categoryId === ALL_CATEGORY_ID ? item.subtitle : undefined
+                }
                 image={item.image}
                 badge={item.badge}
                 favorite={item.favorite}
                 progress={item.progress}
+                warning={item.warning}
                 layout={layout}
+                posterWidth={grid.posterWidth}
+                posterHeight={grid.posterHeight}
+                rowHeight={metrics.rowHeight}
+                logoSlot={
+                  showLogos === true
+                    ? {width: metrics.logoWidth, height: metrics.logoHeight}
+                    : undefined
+                }
                 onPress={() => onSelect(item.id)}
                 onFocus={() => onFocusItem?.(item.id)}
                 style={layout === 'grid' ? styles.gridCard : styles.listCard}
@@ -136,15 +220,10 @@ export const CatalogBrowser = ({
           />
         </TVFocusGuideView>
 
-        {aside !== undefined && <View style={styles.aside}>{aside}</View>}
+        {hasAside && (
+          <View style={[styles.aside, {width: metrics.asideWidth}]}>{aside}</View>
+        )}
       </View>
-
-      <ActionButton
-        label="Retour"
-        onPress={onBack}
-        style={styles.back}
-        testID="browser-back"
-      />
     </View>
   );
 };
@@ -153,20 +232,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   title: {
     color: colors.text,
     fontSize: fontSize.title,
     fontWeight: '700',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  headerAction: {},
   counter: {
     color: colors.textMuted,
     fontSize: fontSize.caption,
@@ -176,14 +259,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   sidebar: {
-    width: 260,
     marginRight: spacing.sm,
   },
   categoryCard: {
-    marginBottom: spacing.xs,
-    minHeight: 68,
+    marginBottom: spacing.xxs,
   },
   categorySelected: {
+    backgroundColor: colors.selected,
     borderColor: colors.accent,
   },
   main: {
@@ -191,25 +273,21 @@ const styles = StyleSheet.create({
   },
   gridRow: {
     justifyContent: 'flex-start',
+    gap: GRID_GAP_SIZE,
+    marginBottom: GRID_GAP_SIZE,
   },
-  gridCard: {
-    marginRight: spacing.sm,
-    marginBottom: spacing.sm,
-  },
+  gridCard: {},
   listCard: {
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xxs,
   },
   aside: {
-    width: 340,
     marginLeft: spacing.sm,
   },
   empty: {
     color: colors.textMuted,
-    fontSize: fontSize.body,
+    fontSize: fontSize.caption,
     padding: spacing.md,
-  },
-  back: {
-    marginTop: spacing.xs,
-    alignSelf: 'flex-start',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
   },
 });

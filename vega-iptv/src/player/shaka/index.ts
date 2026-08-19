@@ -10,7 +10,17 @@ export interface MseAdapter {
   destroy(): Promise<void>;
 }
 
-export type MseAdapterFactory = (player: VideoPlayer) => MseAdapter;
+/** Réglages de lecture que l'utilisateur pilote depuis les préférences. */
+export interface MseOptions {
+  /** Tampon visé, en secondes. Sur un direct, arbitre stabilité contre latence. */
+  bufferSeconds: number;
+  live: boolean;
+}
+
+export type MseAdapterFactory = (
+  player: VideoPlayer,
+  options: MseOptions,
+) => MseAdapter;
 
 let factory: MseAdapterFactory | null = null;
 

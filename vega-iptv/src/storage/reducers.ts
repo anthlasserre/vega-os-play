@@ -1,8 +1,17 @@
-import {MediaKind, mediaKey} from '../iptv/types';
-import {PersistedState, PlaybackProgress, Settings} from './schema';
+import {Category, MediaKind, mediaKey} from '../iptv/types';
+import {
+  HistoryEntry,
+  PersistedState,
+  PlaybackProgress,
+  Settings,
+  filterKey,
+} from './schema';
 
 /** Au-delà, la liste « Reprendre » devient un dépotoir illisible à la télécommande. */
 export const MAX_PROGRESS_ENTRIES = 40;
+
+/** L'historique se parcourt à la télécommande : au-delà, plus personne ne descend. */
+export const MAX_HISTORY_ENTRIES = 200;
 
 /** En deçà, l'utilisateur n'a rien vraiment commencé : on ne pollue pas la reprise. */
 export const MIN_RESUME_SECONDS = 30;
@@ -69,6 +78,129 @@ export const clearProgress = (state: PersistedState): PersistedState => ({
   progress: [],
 });
 
+/**
+ * Journalise un lancement de lecture.
+ *
+ * Une seule ligne par contenu : relancer la même chaîne la remonte en tête et
+ * incrémente son compteur, au lieu d'empiler dix fois TF1 après une soirée de
+ * zapping.
+ */
+export const recordHistory = (
+  state: PersistedState,
+  entry: Omit<HistoryEntry, 'plays'>,
+): PersistedState => {
+  const previous = state.history.find(item => item.key === entry.key);
+  const others = state.history.filter(item => item.key !== entry.key);
+
+  return {
+    ...state,
+    history: [{...entry, plays: (previous?.plays ?? 0) + 1}, ...others].slice(
+      0,
+      MAX_HISTORY_ENTRIES,
+    ),
+  };
+};
+
+export const clearHistory = (state: PersistedState): PersistedState => ({
+  ...state,
+  history: [],
+});
+
+export const removeHistoryEntry = (
+  state: PersistedState,
+  key: string,
+): PersistedState => ({
+  ...state,
+  history: state.history.filter(entry => entry.key !== key),
+});
+
+export const hiddenCategoriesFor = (
+  state: PersistedState,
+  sourceId: string,
+  kind: MediaKind,
+): string[] => state.hiddenCategories[filterKey(sourceId, kind)] ?? [];
+
+export const isCategoryHidden = (
+  state: PersistedState,
+  sourceId: string,
+  kind: MediaKind,
+  categoryId: string,
+): boolean => hiddenCategoriesFor(state, sourceId, kind).includes(categoryId);
+
+const withHidden = (
+  state: PersistedState,
+  sourceId: string,
+  kind: MediaKind,
+  hidden: string[],
+): PersistedState => {
+  const key = filterKey(sourceId, kind);
+  const next = {...state.hiddenCategories};
+  if (hidden.length === 0) {
+    delete next[key];
+  } else {
+    next[key] = hidden;
+  }
+  return {...state, hiddenCategories: next};
+};
+
+export const toggleCategoryHidden = (
+  state: PersistedState,
+  sourceId: string,
+  kind: MediaKind,
+  categoryId: string,
+): PersistedState => {
+  const current = hiddenCategoriesFor(state, sourceId, kind);
+  return withHidden(
+    state,
+    sourceId,
+    kind,
+    current.includes(categoryId)
+      ? current.filter(entry => entry !== categoryId)
+      : [...current, categoryId],
+  );
+};
+
+/** Tout masquer sauf rien : sert de base à une sélection « je ne garde que X ». */
+export const hideAllCategories = (
+  state: PersistedState,
+  sourceId: string,
+  kind: MediaKind,
+  categories: Category[],
+): PersistedState =>
+  withHidden(state, sourceId, kind, categories.map(category => category.id));
+
+export const showAllCategories = (
+  state: PersistedState,
+  sourceId: string,
+  kind: MediaKind,
+): PersistedState => withHidden(state, sourceId, kind, []);
+
+/**
+ * Applique le filtre à un couple catégories / éléments.
+ *
+ * Les deux doivent être filtrés ensemble : ne retirer que les catégories
+ * laisserait leurs chaînes visibles dans « Tout », ce qui donne l'impression
+ * que le réglage ne sert à rien.
+ *
+ * Prend la liste des catégories masquées et non l'état complet : sur un
+ * catalogue de 36 000 films, l'appelant mémoïse sur `state.hiddenCategories`
+ * seul, sans rejouer le filtre à chaque tick de progression de lecture.
+ */
+export const applyCategoryFilter = <T extends {categoryId: string}>(
+  hidden: string[],
+  categories: Category[],
+  items: T[],
+): {categories: Category[]; items: T[]} => {
+  if (hidden.length === 0) {
+    return {categories, items};
+  }
+  const hiddenSet = new Set(hidden);
+  return {
+    categories: categories.filter(category => !hiddenSet.has(category.id)),
+    items: items.filter(item => !hiddenSet.has(item.categoryId)),
+  };
+};
+
 export const addSource = (
   state: PersistedState,
   source: PersistedState['sources'][number],
@@ -96,6 +228,12 @@ export const removeSource = (
   const sources = state.sources.filter(source => source.id !== sourceId);
   const prefix = `${sourceId}:`;
 
+  const hiddenCategories = Object.fromEntries(
+    Object.entries(state.hiddenCategories).filter(
+      ([key]) => !key.startsWith(`${sourceId}|`),
+    ),
+  );
+
   return {
     ...state,
     sources,
@@ -103,6 +241,8 @@ export const removeSource = (
       state.activeSourceId === sourceId ? sources[0]?.id ?? null : state.activeSourceId,
     favorites: state.favorites.filter(key => !key.includes(prefix)),
     progress: state.progress.filter(entry => entry.sourceId !== sourceId),
+    history: state.history.filter(entry => entry.sourceId !== sourceId),
+    hiddenCategories,
   };
 };
 

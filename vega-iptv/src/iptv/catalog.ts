@@ -1,7 +1,20 @@
 import {DEMO_M3U, DEMO_MOVIES} from './demoPlaylist';
 import {buildM3uCategories, fetchM3U, parseM3U} from './m3u';
-import {Catalog, Category, Episode, EpgEntry, Movie, Source} from './types';
-import {loadEpisodes, loadShortEpg, loadXtreamCatalog} from './xtream';
+import {
+  Catalog,
+  Category,
+  Episode,
+  EpgEntry,
+  Movie,
+  MovieDetails,
+  Source,
+} from './types';
+import {
+  loadEpisodes,
+  loadMovieDetails as loadXtreamMovieDetails,
+  loadShortEpg,
+  loadXtreamCatalog,
+} from './xtream';
 
 const emptySection = <T>() => ({categories: [] as Category[], items: [] as T[]});
 
@@ -62,6 +75,22 @@ export const loadSeriesEpisodes = async (
     return [];
   }
   return loadEpisodes(source, seriesId);
+};
+
+/**
+ * Détails d'un film, chargés à l'ouverture de sa fiche.
+ *
+ * Rend un objet vide hors Xtream : ni M3U ni la démo n'ont d'équivalent, et un
+ * appelant n'a pas à connaître cette différence.
+ */
+export const loadMovieDetails = async (
+  source: Source,
+  streamId: number | undefined,
+): Promise<MovieDetails> => {
+  if (source.kind !== 'xtream' || streamId === undefined) {
+    return {};
+  }
+  return loadXtreamMovieDetails(source, streamId);
 };
 
 export const loadChannelEpg = async (

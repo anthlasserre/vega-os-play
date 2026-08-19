@@ -6,6 +6,7 @@ import {MediaCard} from '../components/MediaCard';
 import {Episode, Series} from '../../iptv/types';
 import {PersistedState} from '../../storage/schema';
 import {progressFor} from '../../storage/reducers';
+import {containerOf, isRiskyContainer} from '../../player/streamKind';
 import {formatDuration} from '../format';
 import {colors, fontSize, spacing} from '../../theme';
 
@@ -117,9 +118,16 @@ export const SeriesDetailScreen = ({
                   testID={`episode-${item.id}`}
                   title={`${item.episode}. ${item.title}`}
                   subtitle={
-                    item.durationSeconds === undefined
-                      ? undefined
-                      : formatDuration(item.durationSeconds)
+                    [
+                      item.durationSeconds === undefined
+                        ? undefined
+                        : formatDuration(item.durationSeconds),
+                      isRiskyContainer(item.url)
+                        ? containerOf(item.url)
+                        : undefined,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || undefined
                   }
                   layout="list"
                   progress={
